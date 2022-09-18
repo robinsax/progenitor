@@ -1,0 +1,9 @@
+@import '@/common.scss';
+
+
+.hint {
+    display: inline-block;
+    vertical-align: top;
+    font-size: $s-space * 1.5;
+    padding: $s-space * 0.5;
+}

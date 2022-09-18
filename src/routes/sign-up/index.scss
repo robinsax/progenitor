@@ -1,0 +1,19 @@
+@import '@/common.scss';
+
+.sign-up-form {
+    width: $s-space * 50;
+
+    .link.leave-flow {
+        position: absolute;
+        left: $s-space;
+        top: -$s-space * 4;
+    }
+
+    h3 {
+        .brand {
+            margin-right: $s-space;
+        }
+
+        line-height: $s-space * 6;
+    }
+}

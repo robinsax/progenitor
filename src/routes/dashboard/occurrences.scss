@@ -1,0 +1,15 @@
+@import '@/common.scss';
+
+.occurrences-list {
+    width: $s-space * 80;
+    padding: $s-space * 2;
+
+    .occurrence {
+        margin-bottom: $s-space * 2;
+        @include m-panel;
+    }
+
+    .occurrence-form {
+        @include m-panel;
+    }
+}
