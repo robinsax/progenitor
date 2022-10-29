@@ -1,1 +1,9 @@
-node_modules
+tmp/
+node_modules/
+api/target/
+infra/*.hcl
+infra/*.info
+infra/.terraform
+infra/*.tfstate
+infra/*.backup
+infra/*.tfvars
