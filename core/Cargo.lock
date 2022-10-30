@@ -780,13 +780,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "progenitor-core"
+name = "progenitor"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "mongodb",
  "serde",
  "tokio",
+ "uuid 1.2.1",
 ]
 
 [[package]]

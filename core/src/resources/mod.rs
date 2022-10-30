@@ -1,9 +1,7 @@
 mod storage;
-mod scene;
 
-pub use storage::{Store, Query};
-pub use scene::Scene;
+pub use storage::{Store, Query, StorageOpError};
 
-mod ext {
+pub mod ext {
     pub use super::storage::ext::*;
 }
