@@ -1,7 +1,8 @@
-mod storage;
+mod net;
+mod persistence;
 
-pub use storage::{Store, Query, StorageOpError};
+pub use persistence::{PersistentStore, Query, PersistenceError};
 
 pub mod ext {
-    pub use super::storage::ext::*;
+    pub use super::persistence::ext::*;
 }
