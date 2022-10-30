@@ -1,3 +1,5 @@
+use std::mem;
+
 use super::primitives::{LiteralValue, DataType, SchemaError};
 
 #[derive(Debug)]
@@ -76,8 +78,8 @@ impl IndirectComparator {
                 }
             },
             // TODO deep?
-            LiteralValue::List{ value, inner_type } => false,
-            LiteralValue::Object{ value, type_schema } => false
+            LiteralValue::List{ .. } => false,
+            LiteralValue::Object{ .. } => false
         }
     }
 
@@ -101,6 +103,12 @@ pub enum IndirectConjunctive {
     Or
 }
 
+impl PartialEq<IndirectConjunctive> for IndirectConjunctive {
+    fn eq(&self, other: &IndirectConjunctive) -> bool {
+        mem::discriminant(self) == mem::discriminant(other)
+    }
+}
+
 #[derive(Debug)]
 pub enum IndirectExpression {
     Comparison{left: IndirectValue, right: IndirectValue, op: IndirectComparator},
@@ -114,8 +122,19 @@ impl IndirectExpression {
                 op.validate_within(data_type, left, right)
             },
             IndirectExpression::Conjunctive { op, inner } => {
+                let mut any = false;
                 for expr in inner.as_slice() {
-                    expr.validate_within(data_type)?;
+                    match expr.validate_within(data_type) {
+                        Err(err) => {
+                            if *op == IndirectConjunctive::And {
+                                return Err(err);
+                            }
+                        },
+                        Ok(_) => any = true
+                    };
+                }
+                if *op == IndirectConjunctive::Or && !any {
+                    return Err(SchemaError::TODO)
                 }
 
                 Ok(())

@@ -4,43 +4,43 @@ use async_trait::async_trait;
 
 use crate::archetype::{LiteralValue, IndirectExpression, IndirectMutation};
 
-use super::common::StorageOpError;
-use super::driver::{StorageDriver, StoreBackend};
+use super::common::PersistenceError;
+use super::driver::{PersistenceDriver, PersistentStoreBackend};
 
-pub struct InMemoryStorageDriver;
+pub struct InMemoryPersistenceDriver;
 
-impl InMemoryStorageDriver {
+impl InMemoryPersistenceDriver {
     pub fn new() -> Self {
         Self{}
     }
 }
 
-impl<T> From<PoisonError<T>> for StorageOpError {
-    fn from(_: PoisonError<T>) -> StorageOpError {
-        StorageOpError::TODO
+impl<T> From<PoisonError<T>> for PersistenceError {
+    fn from(_: PoisonError<T>) -> PersistenceError {
+        PersistenceError::TODO
     }
 }
 
 #[async_trait]
-impl StorageDriver for InMemoryStorageDriver {
-    async fn open(&self, conn_str: String) -> Result<Box<dyn StoreBackend>, StorageOpError> {
-        Ok(Box::new(InMemoryStoreBackend::new()))
+impl PersistenceDriver for InMemoryPersistenceDriver {
+    async fn open(&self, conn_str: String) -> Result<Box<dyn PersistentStoreBackend>, PersistenceError> {
+        Ok(Box::new(InMemoryPersistentStoreBackend::new()))
     }
 }
 
-pub struct InMemoryStoreBackend {
+pub struct InMemoryPersistentStoreBackend {
     data: RwLock<Vec<LiteralValue>>
 }
 
-impl InMemoryStoreBackend {
+impl InMemoryPersistentStoreBackend {
     pub fn new() -> Self {
         Self{ data: RwLock::new(Vec::new()) }
     }
 }
 
-impl InMemoryStoreBackend {    
+impl InMemoryPersistentStoreBackend {    
     // TODO a lot more complexity than this in reality (foreign refs)
-    fn evaluate_filter(&self, item: &LiteralValue, filter: &IndirectExpression) -> Result<bool, StorageOpError> {
+    fn evaluate_filter(&self, item: &LiteralValue, filter: &IndirectExpression) -> Result<bool, PersistenceError> {
         match filter {
             IndirectExpression::Comparison{ op, left, right } => {
                 Ok(op.realize(&left.realize(item)?, &right.realize(item)?))
@@ -59,8 +59,8 @@ impl InMemoryStoreBackend {
 }
 
 #[async_trait]
-impl StoreBackend for InMemoryStoreBackend {
-    async fn load(&self, filter: &IndirectExpression, limit: usize, offset: usize) -> Result<Vec<LiteralValue>, StorageOpError> {
+impl PersistentStoreBackend for InMemoryPersistentStoreBackend {
+    async fn load(&self, filter: &IndirectExpression, limit: usize, offset: usize) -> Result<Vec<LiteralValue>, PersistenceError> {
         let data = self.data.read()?;
         
         let mut found: Vec<LiteralValue> = Vec::new();
@@ -76,7 +76,7 @@ impl StoreBackend for InMemoryStoreBackend {
         Ok(found)
     }
 
-    async fn update(&self, filter: &IndirectExpression, update: &IndirectMutation) -> Result<usize, StorageOpError> {
+    async fn update(&self, filter: &IndirectExpression, update: &IndirectMutation) -> Result<usize, PersistenceError> {
         let mut data = self.data.write()?;
 
         let mut updates: Vec<(usize, LiteralValue)> = Vec::new();
@@ -94,7 +94,7 @@ impl StoreBackend for InMemoryStoreBackend {
         Ok(update_count)
     }
 
-    async fn delete(&self, filter: &IndirectExpression) -> Result<usize, StorageOpError> {
+    async fn delete(&self, filter: &IndirectExpression) -> Result<usize, PersistenceError> {
         let mut data = self.data.write()?;
 
         let mut removals: Vec<usize> = Vec::new();
@@ -112,7 +112,7 @@ impl StoreBackend for InMemoryStoreBackend {
         Ok(removal_count)
     }
 
-    async fn insert(&self, new_data: &[LiteralValue]) -> Result<(), StorageOpError> {
+    async fn insert(&self, new_data: &[LiteralValue]) -> Result<(), PersistenceError> {
         let mut data = self.data.write()?;
 
         for item in new_data {

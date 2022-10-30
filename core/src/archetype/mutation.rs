@@ -1,4 +1,5 @@
-use super::model::Model; // TODO no, more generic
+// TODO component base
+// this is currently not in package tree
 use super::component::ComponentID;
 
 pub enum ComponentMutationError {

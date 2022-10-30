@@ -44,13 +44,13 @@ const View = () => {
 (async () => {
     await db.connect();
 
-    const initToken = localStorage.getItem('jwt');
+    const initToken = localPersistence.getItem('jwt');
     if (initToken) {
         db.signinWithToken(initToken);
     }
 
     db.watchToken(token => {
-        localStorage.setItem('jwt', token || '');
+        localPersistence.setItem('jwt', token || '');
     });
 
     render(() => (

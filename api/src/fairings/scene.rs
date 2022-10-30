@@ -4,9 +4,9 @@ use std::sync::{Arc, Mutex};
 use rocket::fairing;
 use serde::{Serialize, Deserialize};
 
-use progenitor::apps::Store;
+use progenitor::apps::PersistentStore;
 use progenitor::archetype::{DataType, LiteralValue};
-use progenitor::ext::InMemoryStoreBackend;
+use progenitor::ext::InMemoryPersistentStoreBackend;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Foo {
@@ -53,14 +53,14 @@ impl From<Foo> for LiteralValue {
 
 pub struct SceneState { // TODO actually turn into a scene once core has it
     pub foo_type: DataType,
-    pub foo_store: Store<Foo>,
+    pub foo_store: PersistentStore<Foo>,
 }
 
 impl SceneState {
     fn new() -> Self {
 
         Self{
-            foo_store: Store::new(DataType::Object{ schema: foo_schema() }, Box::new(InMemoryStoreBackend::new())),
+            foo_store: PersistentStore::new(DataType::Object{ schema: foo_schema() }, Box::new(InMemoryPersistentStoreBackend::new())),
             foo_type: DataType::Object{ schema: foo_schema() }
         }
     }

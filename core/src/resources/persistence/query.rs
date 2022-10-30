@@ -2,16 +2,16 @@ use std::marker::PhantomData;
 
 use crate::archetype::{LiteralValue, IndirectExpression};
 
-use super::{common::StorageOpError, store::Store};
+use super::{common::PersistenceError, store::PersistentStore};
 
 pub struct Query<'b, T> {
     phantom: PhantomData<T>,
-    store: &'b Store<T>,
+    store: &'b PersistentStore<T>,
     filter: Option<IndirectExpression>,
 }
 
 impl<'b, T: From<LiteralValue> + Clone> Query<'b, T> {
-    pub fn new(store: &'b Store<T>) -> Self {
+    pub fn new(store: &'b PersistentStore<T>) -> Self {
         Self{
             phantom: PhantomData,
             store,
@@ -25,10 +25,10 @@ impl<'b, T: From<LiteralValue> + Clone> Query<'b, T> {
         self
     }
 
-    async fn load(&self, limit: usize, offset: usize) -> Result<Vec<T>, StorageOpError> {
+    async fn load(&self, limit: usize, offset: usize) -> Result<Vec<T>, PersistenceError> {
         let filter = match &self.filter {
             Some(f) => f,
-            None => return Err(StorageOpError::TODO)
+            None => return Err(PersistenceError::TODO)
         };
 
         filter.validate_within(&self.store.data_type)?;
@@ -38,7 +38,7 @@ impl<'b, T: From<LiteralValue> + Clone> Query<'b, T> {
         Ok(literal_results.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn one(&self) -> Result<Option<T>, StorageOpError> {
+    pub async fn one(&self) -> Result<Option<T>, PersistenceError> {
         let loaded = self.load(1, 0).await?;
 
         match loaded.len() > 0 {

@@ -9,7 +9,7 @@ use rocket::response::{Responder, Result as ResponderResult};
 
 use super::fairings::{SceneState, Foo};
 
-use progenitor::apps::StorageOpError;
+use progenitor::apps::PersistenceError;
 
 #[derive(Serialize, Clone)]
 pub struct ErrorResponse {
@@ -24,8 +24,8 @@ pub enum ResponseCase<T: Serialize + Clone>  { // TODO fromresidual when moved t
     Success(T)
 }
 
-impl<T: Serialize + Clone> From<StorageOpError> for ResponseCase<T> {
-    fn from(_: StorageOpError) -> Self {
+impl<T: Serialize + Clone> From<PersistenceError> for ResponseCase<T> {
+    fn from(_: PersistenceError) -> Self {
         Self::Error(ErrorResponse{
             code: 500,
             message: "database erro"

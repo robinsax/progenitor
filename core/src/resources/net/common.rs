@@ -1,4 +1,4 @@
 #[derive(Debug)]
-pub enum ModelSchemaError {
+pub enum NetError {
     TODO
 }
