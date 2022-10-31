@@ -1,5 +1,4 @@
 use uuid::Uuid;
-pub use serde::{Serialize, Deserialize};
 
 pub type ComponentID = String;
 
@@ -9,7 +8,7 @@ pub fn new_component_id() -> ComponentID {
 
 macro_rules! component {
     ($d: item) => {
-        #[derive($crate::archetype::component::Serialize, $crate::archetype::component::Deserialize, Debug, Clone)]
+        #[derive(Debug, Clone)] // TODO serialize et al
         $d
     }
 }

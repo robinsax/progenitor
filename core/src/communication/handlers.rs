@@ -2,18 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::archetype::LiteralValue;
+use crate::SerialValue;
 
 use super::common::CommunicationError;
-
-// TODO abstraction on from / into needed in general. also literalvalue needs replacement
-pub trait HandlerInput: From<LiteralValue> {
-
-}
-
-pub trait HandlerOutput: Into<LiteralValue> {
-
-}
 
 #[derive(Clone)]
 pub struct Route {
@@ -36,47 +27,35 @@ impl From<&'static str> for Route {
 
 pub struct Request {
     pub route: Route,
-    pub payload: LiteralValue
+    pub payload: SerialValue // TODO well see how this goes
 }
 
+#[derive(Debug)]
 pub enum ResponseError {
-    InternalError,
-    InvalidRequest,
-    TODO
+    TODO(String)
 }
 
 pub enum Response {
-    Success(LiteralValue),
-    Error(ResponseError, LiteralValue)
+    Success(SerialValue),
+    Error(ResponseError)
 }
 
 impl From<CommunicationError> for Response {
-    fn from(_: CommunicationError) -> Self {
-        // TODO
-        Self::Error(ResponseError::InternalError, LiteralValue::Null { real_type: None })
-    }
-}
-
-// TODO better
-impl From<Result<(), LiteralValue>> for Response {
-    fn from(result: Result<(), LiteralValue>) -> Self {
-        match result {
-            Ok(_) => Self::Success(LiteralValue::Null { real_type: None }),
-            Err(err) => Self::Error(ResponseError::TODO, err)
-        }
+    fn from(err: CommunicationError) -> Self {
+        Self::Error(ResponseError::TODO(format!("resp from {:?}", err)))
     }
 }
 
 #[async_trait]
 pub trait AsyncHandler: Send + Sync {
     fn async_route(&self) -> Route;
-    async fn handle_async(&self, req: &Request) -> Result<(), LiteralValue>;
+    async fn handle_async(&self, req: &Request) -> Result<(), CommunicationError>;
 }
 
 #[async_trait]
 pub trait SyncHandler: Send + Sync {
     fn sync_route(&self) -> Route;
-    async fn handle_sync(&self, req: &Request) -> Response;
+    async fn handle_sync(&self, req: &Request) -> Result<Response, CommunicationError>;
 }
 
 #[async_trait]
@@ -85,11 +64,10 @@ impl<T: AsyncHandler> SyncHandler for T {
         self.async_route()
     }
     
-    async fn handle_sync(&self, req: &Request) -> Response {
-        match self.handle_async(req).await {
-            Ok(()) =>  Response::Success(LiteralValue::Null { real_type: None }),
-            err => err.into()
-        }
+    async fn handle_sync(&self, req: &Request) -> Result<Response, CommunicationError> {
+        self.handle_async(req).await?;
+
+        Ok(Response::Success(SerialValue::empty()))
     }
 }
 
@@ -105,14 +83,14 @@ impl SyncHandler for RoutingHandler {
         "*".into()
     }
 
-    async fn handle_sync(&self, req: &Request) -> Response {
+    async fn handle_sync(&self, req: &Request) -> Result<Response, CommunicationError> {
         for (route, handler) in self.routes.as_slice() {
             if route.path == req.route.path {
                 return handler.handle_sync(req).await;
             }
         }
 
-        Response::Error(ResponseError::InvalidRequest, LiteralValue::Null { real_type: None })
+        Ok(Response::Error(ResponseError::TODO("no route match".into())))
     }
 }
 

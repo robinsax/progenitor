@@ -1,10 +1,14 @@
-mod resources;
-pub mod archetype;
+mod communication;
+mod persistence;
+mod runtime;
+mod schema;
 
-pub mod inst {
-    pub use super::resources::*;
-}
+// TODO: no *
+pub use schema::*;
+pub use persistence::*;
+pub use communication::*;
+pub use runtime::*;
 
 pub mod ext {
-    pub use super::resources::ext::*;
+    pub use super::persistence::ext::*;
 }

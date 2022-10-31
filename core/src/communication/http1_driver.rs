@@ -4,9 +4,6 @@ use tokio::{task, net::TcpListener, io::Error as TokioIoError};
 use hyper::{service::service_fn, server::conn::http1::Builder, Error}; // TODO lose?
 use http_body_util::{Full, BodyExt};
 
-use crate::archetype::LiteralValue;
-
-use super::super::SerialJson;
 use super::common::{BindOptions, CommunicationError};
 use super::handlers::{Route, Request, RootHandler, Response};
 use super::driver::{CommunicationDriver};
@@ -27,27 +24,21 @@ pub struct Http1CommunicationDriver {
     bind_options: BindOptions,
 }
 
-// TODO so bad and json lock
-async fn convert_req(hyper_req: hyper::Request<hyper::body::Incoming>) -> Result<Request, CommunicationError> {
+// TODO so bad
+async fn prepare_request(hyper_req: hyper::Request<hyper::body::Incoming>) -> Result<Request, CommunicationError> {
     let path = hyper_req.uri().clone().to_string();
-
     let raw = hyper_req.collect().await?.to_bytes();
-    let ser: SerialJson = Bytes::from(raw).try_into()?;
 
-    let payload: LiteralValue = ser.try_into()?;
-
-    Ok(Request { route: Route::new(path), payload })
+    Ok(Request { route: Route::new(path), payload: raw.into() })
 }
 
-async fn convert_resp(resp: Response) -> hyper::Response<Full<Bytes>> {
+async fn prepare_response(resp: Response) -> hyper::Response<Full<Bytes>> {
     hyper::Response::new(match resp {
-        Response::Success(data) => {
-            let ser: SerialJson = data.try_into().unwrap();
-
-            Full::new(ser.try_into().unwrap())
+        Response::Success(serial) => {
+            Full::new(serial.into())
         },
-        Response::Error(err, detail) => {
-            Full::new(Bytes::from("error"))
+        Response::Error(err) => {
+            Full::new(Bytes::from(format!("TODO {:?}", err)))
         }
     })
 }
@@ -68,10 +59,17 @@ impl CommunicationDriver for Http1CommunicationDriver {
                         let future_handler_ref = handler_ref.clone(); // TODO deal with this, double move = brutal
 
                         async move {
-                            let request: Request = convert_req(hyper_request).await.unwrap();
-                            let response = future_handler_ref.handle_sync(&request).await;
-                        
-                            Ok::<_, hyper::Error>(convert_resp(response).await)
+                            Ok::<_, hyper::Error>(prepare_response(
+                                match prepare_request(hyper_request).await {
+                                    Ok(req) => {
+                                        match future_handler_ref.handle_sync(&req).await {
+                                            Ok(response) => response,
+                                            Err(err) => err.into()
+                                        }
+                                    },
+                                    Err(err) => err.into()
+                                }
+                            ).await)
                         }
                     }))
                     .await.unwrap() // TODO no

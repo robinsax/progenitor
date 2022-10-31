@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::resources::SerialError;
+use crate::schema::SchemaError;
 
 #[derive(Clone)]
 pub struct BindOptions {
@@ -12,8 +12,8 @@ pub enum CommunicationError {
     TODO
 }
 
-impl From<SerialError> for CommunicationError {
-    fn from(_: SerialError) -> Self {
+impl From<SchemaError> for CommunicationError {
+    fn from(_: SchemaError) -> Self {
         CommunicationError::TODO
     }
 }

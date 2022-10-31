@@ -1,4 +1,4 @@
-use crate::archetype::SchemaError;
+use crate::schema::SchemaError;
 
 pub struct ConnectionOptions {
     pub uri: String,
