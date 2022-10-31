@@ -11,8 +11,8 @@ pub use store::PersistentStore;
 mod inmem_backend;
 
 pub mod ext {
-    pub use super::driver::{PersistenceDriver, PersistenceDriverFactory};
+    pub use super::driver::PersistenceDriver;
 
     // TODO as extensions
-    pub use super::inmem_backend::{InMemoryPersistenceDriver, InMemoryPersistenceDriverFactory};
+    pub use super::inmem_backend::InMemoryPersistenceDriver;
 }

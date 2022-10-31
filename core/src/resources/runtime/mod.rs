@@ -1,2 +1,3 @@
-mod common;
 mod server;
+
+pub use server::*;

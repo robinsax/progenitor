@@ -11,15 +11,15 @@ use super::{
 pub struct PersistentStore<T> {
     phantom: PhantomData<T>,
     pub(crate) data_type: DataType,
-    pub(crate) backend: Box<dyn PersistenceDriver>,
+    pub(crate) driver: Box<dyn PersistenceDriver>,
 }
 
 impl<T: From<LiteralValue> + Into<LiteralValue> + Clone> PersistentStore<T> {
-    pub fn new(data_type: DataType, backend: Box<dyn PersistenceDriver>) -> Self {
+    pub fn new(data_type: DataType, driver: Box<dyn PersistenceDriver>) -> Self {
         Self{
             phantom: PhantomData,
             data_type,
-            backend
+            driver
         }
     }
 
@@ -28,7 +28,7 @@ impl<T: From<LiteralValue> + Into<LiteralValue> + Clone> PersistentStore<T> {
     }
 
     pub async fn put(&self, item: T) -> Result<T, PersistenceError> {
-        self.backend.insert(&[item.clone().into()]).await?;
+        self.driver.insert(&[item.clone().into()]).await?;
 
         Ok(item)
     }

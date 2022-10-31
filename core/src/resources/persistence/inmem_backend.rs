@@ -5,26 +5,11 @@ use async_trait::async_trait;
 use crate::archetype::{LiteralValue, IndirectExpression, IndirectMutation};
 
 use super::common::{PersistenceError, ConnectionOptions};
-use super::driver::{PersistenceDriver, PersistenceDriverFactory};
-
-pub struct InMemoryPersistenceDriverFactory;
-
-impl InMemoryPersistenceDriverFactory {
-    pub fn new() -> Self {
-        Self{}
-    }
-}
+use super::driver::PersistenceDriver;
 
 impl<T> From<PoisonError<T>> for PersistenceError {
     fn from(_: PoisonError<T>) -> PersistenceError {
         PersistenceError::TODO
-    }
-}
-
-#[async_trait]
-impl PersistenceDriverFactory for InMemoryPersistenceDriver {
-    async fn open_store(&self, _: &ConnectionOptions) -> Result<Box<dyn PersistenceDriver>, PersistenceError> {
-        Ok(Box::new(InMemoryPersistenceDriver::new()))
     }
 }
 

@@ -33,7 +33,7 @@ impl<'b, T: From<LiteralValue> + Clone> Query<'b, T> {
 
         filter.validate_within(&self.store.data_type)?;
 
-        let literal_results = self.store.backend.load(filter, limit, offset).await?;
+        let literal_results = self.store.driver.load(filter, limit, offset).await?;
         
         Ok(literal_results.into_iter().map(|r| r.into()).collect())
     }

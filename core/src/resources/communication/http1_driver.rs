@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use bytes::Bytes;
-use tokio::sync::RwLock;
 use tokio::{task, net::TcpListener, io::Error as TokioIoError};
 use hyper::{service::service_fn, server::conn::http1::Builder, Error}; // TODO lose?
 use http_body_util::{Full, BodyExt};
@@ -8,10 +7,9 @@ use http_body_util::{Full, BodyExt};
 use crate::archetype::LiteralValue;
 
 use super::super::SerialJson;
-use super::RootHandler;
 use super::common::{BindOptions, CommunicationError};
-use super::handlers::{SyncHandler, Route, Request, Response};
-use super::driver::{CommunicationDriverFactory, CommunicationDriver};
+use super::handlers::{Route, Request, RootHandler, Response};
+use super::driver::{CommunicationDriver};
 
 impl From<TokioIoError> for CommunicationError {
     fn from(_: TokioIoError) -> Self {
@@ -19,20 +17,9 @@ impl From<TokioIoError> for CommunicationError {
     }
 }
 
-pub struct Http1CommunicationDriverFactory {
-    
-}
-
 impl From<Error> for CommunicationError {
     fn from(_: Error) -> Self {
         CommunicationError::TODO
-    }
-}
-
-#[async_trait]
-impl CommunicationDriverFactory for Http1CommunicationDriverFactory {
-    async fn create_server(&self, options: &BindOptions) -> Result<Box<dyn CommunicationDriver>, CommunicationError> {
-        Ok(Box::new(Http1CommunicationDriver{ bind_options: options.clone() }))
     }
 }
 
@@ -78,7 +65,7 @@ impl CommunicationDriver for Http1CommunicationDriver {
             task::spawn(async {
                 Builder::new()
                     .serve_connection(stream, service_fn(move |hyper_request: hyper::Request<hyper::body::Incoming>| {
-                        let future_handler_ref = handler_ref.clone(); // TODO deal with this
+                        let future_handler_ref = handler_ref.clone(); // TODO deal with this, double move = brutal
 
                         async move {
                             let request: Request = convert_req(hyper_request).await.unwrap();
