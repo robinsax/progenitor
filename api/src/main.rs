@@ -1,11 +1,14 @@
-mod fairings;
-mod foo;
+use tokio;
 
-use fairings::scene_stage;
+use progenitor::inst::SyncHandler;
 
-#[macro_use] extern crate rocket;
+pub struct HelloHandler;
 
-#[launch] // TODO dump rocket, need to experiment with raw http / rpc / configured tokio runtimes for internal svcs
-fn rocket() -> _ {
-    rocket::build().attach(scene_stage()).mount("/", routes![foo::get_foos])
+impl SyncHandler for HelloHandler {
+    
+}
+
+#[tokio::main]
+async fn main() {
+
 }

@@ -1,7 +1,7 @@
 mod resources;
 pub mod archetype;
 
-pub mod apps {
+pub mod inst {
     pub use super::resources::*;
 }
 

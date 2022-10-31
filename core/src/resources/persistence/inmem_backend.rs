@@ -4,12 +4,12 @@ use async_trait::async_trait;
 
 use crate::archetype::{LiteralValue, IndirectExpression, IndirectMutation};
 
-use super::common::PersistenceError;
-use super::driver::{PersistenceDriver, PersistentStoreBackend};
+use super::common::{PersistenceError, ConnectionOptions};
+use super::driver::{PersistenceDriver, PersistenceDriverFactory};
 
-pub struct InMemoryPersistenceDriver;
+pub struct InMemoryPersistenceDriverFactory;
 
-impl InMemoryPersistenceDriver {
+impl InMemoryPersistenceDriverFactory {
     pub fn new() -> Self {
         Self{}
     }
@@ -22,23 +22,23 @@ impl<T> From<PoisonError<T>> for PersistenceError {
 }
 
 #[async_trait]
-impl PersistenceDriver for InMemoryPersistenceDriver {
-    async fn open(&self, conn_str: String) -> Result<Box<dyn PersistentStoreBackend>, PersistenceError> {
-        Ok(Box::new(InMemoryPersistentStoreBackend::new()))
+impl PersistenceDriverFactory for InMemoryPersistenceDriver {
+    async fn open_store(&self, _: &ConnectionOptions) -> Result<Box<dyn PersistenceDriver>, PersistenceError> {
+        Ok(Box::new(InMemoryPersistenceDriver::new()))
     }
 }
 
-pub struct InMemoryPersistentStoreBackend {
+pub struct InMemoryPersistenceDriver {
     data: RwLock<Vec<LiteralValue>>
 }
 
-impl InMemoryPersistentStoreBackend {
+impl InMemoryPersistenceDriver {
     pub fn new() -> Self {
         Self{ data: RwLock::new(Vec::new()) }
     }
 }
 
-impl InMemoryPersistentStoreBackend {    
+impl InMemoryPersistenceDriver {    
     // TODO a lot more complexity than this in reality (foreign refs)
     fn evaluate_filter(&self, item: &LiteralValue, filter: &IndirectExpression) -> Result<bool, PersistenceError> {
         match filter {
@@ -59,7 +59,7 @@ impl InMemoryPersistentStoreBackend {
 }
 
 #[async_trait]
-impl PersistentStoreBackend for InMemoryPersistentStoreBackend {
+impl PersistenceDriver for InMemoryPersistenceDriver {
     async fn load(&self, filter: &IndirectExpression, limit: usize, offset: usize) -> Result<Vec<LiteralValue>, PersistenceError> {
         let data = self.data.read()?;
         

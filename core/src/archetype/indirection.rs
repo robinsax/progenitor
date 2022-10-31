@@ -53,6 +53,12 @@ impl IndirectComparator {
     // TODO result
     pub fn realize(&self, left: &LiteralValue, right: &LiteralValue) -> bool {
         match left {
+            LiteralValue::Null{ .. } => {
+                match right {
+                    LiteralValue::Null{ .. } => true,
+                    _ => false
+                }
+            },
             LiteralValue::Uint32{ value: a } => {
                 match right {
                     LiteralValue::Uint32{ value: b } => apply_comparator_std_ops!(self, a, b),

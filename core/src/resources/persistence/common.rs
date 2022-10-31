@@ -1,5 +1,11 @@
 use crate::archetype::SchemaError;
 
+pub struct ConnectionOptions {
+    pub uri: String,
+    pub access_key: String,
+    pub access_secret: String
+}
+
 #[derive(Debug)]
 pub enum PersistenceError {
     SchemaError(SchemaError),

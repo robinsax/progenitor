@@ -2,10 +2,10 @@ use async_trait::async_trait;
 
 use crate::archetype::{IndirectExpression, IndirectMutation, LiteralValue};
 
-use super::PersistenceError;
+use super::{PersistenceError, ConnectionOptions};
 
 #[async_trait]
-pub trait PersistentStoreBackend: Send + Sync { // TODO replace literalvalue with performant alternative
+pub trait PersistenceDriver: Send + Sync { // TODO replace literalvalue with performant alternative
     async fn load(&self, filter: &IndirectExpression, limit: usize, offset: usize) -> Result<Vec<LiteralValue>, PersistenceError>;
     async fn update(&self, filter: &IndirectExpression, update: &IndirectMutation) -> Result<usize, PersistenceError>;
     async fn delete(&self, filter: &IndirectExpression) -> Result<usize, PersistenceError>;
@@ -13,6 +13,7 @@ pub trait PersistentStoreBackend: Send + Sync { // TODO replace literalvalue wit
 }
 
 #[async_trait]
-pub trait PersistenceDriver {
-    async fn open(&self, connection_options: String) -> Result<Box<dyn PersistentStoreBackend>, PersistenceError>;
+pub trait PersistenceDriverFactory {
+    async fn open_store(&self, options: &ConnectionOptions) -> Result<Box<dyn PersistenceDriver>, PersistenceError>;
 }
+

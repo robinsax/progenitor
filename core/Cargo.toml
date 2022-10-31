@@ -6,8 +6,10 @@ edition = "2021"
 [dependencies]
 bytes = "1.2.1"
 tokio = { version = "1.21.2", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
 async-trait = "0.1.58"
 uuid = { version = "1.2.1", features = ["v4"] }
-hyper = { version = "0.14", features = ["full"] }
 http-body-util = "0.1.0-rc.1"
+# TODO tmp below?
+hyper = { version = "1.0.0-rc.1", features = ["full"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }

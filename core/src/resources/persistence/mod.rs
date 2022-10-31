@@ -3,7 +3,7 @@ mod driver;
 mod query;
 mod store;
 
-pub use common::PersistenceError;
+pub use common::{PersistenceError, ConnectionOptions};
 pub use query::Query;
 pub use store::PersistentStore;
 
@@ -11,8 +11,8 @@ pub use store::PersistentStore;
 mod inmem_backend;
 
 pub mod ext {
-    pub use super::driver::{PersistenceDriver, PersistentStoreBackend};
+    pub use super::driver::{PersistenceDriver, PersistenceDriverFactory};
 
     // TODO as extensions
-    pub use super::inmem_backend::{InMemoryPersistenceDriver, InMemoryPersistentStoreBackend};
+    pub use super::inmem_backend::{InMemoryPersistenceDriver, InMemoryPersistenceDriverFactory};
 }

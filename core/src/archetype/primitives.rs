@@ -62,6 +62,7 @@ impl DataType {
 
 component! {
     pub enum LiteralValue { // TODO more
+        Null{real_type: Option<DataType>},
         Uint32{value: u32},
         Int32{value: i32},
         Float64{value: f64},
@@ -74,6 +75,12 @@ component! {
 impl LiteralValue {
     pub fn data_type(&self) -> DataType {
         match self {
+            LiteralValue::Null { real_type } => {
+                match real_type {
+                    Some(inner) => inner.clone(),
+                    None => panic!("TODO base abstraction")
+                }
+            },
             LiteralValue::Uint32{ .. } => DataType::Uint32,
             LiteralValue::Int32 { .. } => DataType::Int32,
             LiteralValue::Float64{ ..} => DataType::Float64,
