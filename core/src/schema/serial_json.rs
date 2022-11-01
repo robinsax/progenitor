@@ -192,10 +192,10 @@ impl SerialFormat for JsonSerial {
         Ok(())
     }
 
-    fn flush(self) -> Result<SerialValue, SchemaError> {
-        match self.value {
+    fn flush(&self) -> Result<SerialValue, SchemaError> {
+        match &self.value {
             None => Err(SchemaError::TODO("json fmt flush state error".into())),
-            Some(value) => Ok(value)
+            Some(value) => Ok(value.data.clone().into())
         }
     }
 }
@@ -203,6 +203,7 @@ impl SerialFormat for JsonSerial {
 #[cfg(test)]
 mod tests {
     use super::super::serial_repr::SerialRepr;
+    use super::super::indirect_type::IndirectType;
     use super::*;
     
     #[derive(Clone)]
@@ -238,6 +239,17 @@ mod tests {
     }
     
     impl SerialRepr for Foo {
+        fn schema() -> IndirectType {
+            let mut fields = HashMap::new();
+
+            fields.insert("a".into(), IndirectType::String);
+            fields.insert("b".into(), IndirectType::Int32);
+            fields.insert("c".into(), IndirectType::Bool);
+            fields.insert("d".into(), IndirectType::List(Box::new(IndirectType::Uint32)));
+
+            IndirectType::Map(fields)
+        }
+
         fn deserialize(serial: impl SerialFormat) -> Result<Self, SchemaError> {
             use super::super::serial_repr::macros::*;
 
@@ -252,7 +264,7 @@ mod tests {
             })
         }
     
-        fn serialize(&self, mut serial: impl SerialFormat) -> Result<SerialValue, SchemaError> {
+        fn serialize(&self, mut serial: &mut impl SerialFormat) -> Result<SerialValue, SchemaError> {
             let dup = self.clone(); // TODO bruh
             serial.write(dup.try_into()?)?;
 
@@ -272,7 +284,7 @@ mod tests {
 
         f.d.push(23);
 
-        let s = f.serialize(JsonSerial::new_writer()).expect("json write failed");
+        let s = f.serialize(&mut JsonSerial::new_writer()).expect("json write failed");
         let b: Bytes = s.data.clone();
 
         assert_eq!(String::from_utf8(b.into()).expect("serialized value valid"), "{\"a\":\"a\",\"b\":12,\"c\":true,\"d\":[23]}");

@@ -1,11 +1,14 @@
 use super::errors::SchemaError;
 use super::serial::{SerialValue, SerialFormat};
-use super::indirect_value::IndirectValue;
+use super::indirect_type::IndirectType;
 
-pub trait SerialRepr: Sized + Send + Sync + TryInto<IndirectValue, Error = SchemaError> { // TODO try into constraint sooo temporary
+// TODO clean up sized etc constraint base, it'll be relevant but is poorly expressed
+pub trait SerialRepr: Sized + Send + Sync {
+    fn schema() -> IndirectType; // TODO use to gen next 2
     fn deserialize(serial: impl SerialFormat) -> Result<Self, SchemaError>;
-    fn serialize(&self, writer: impl SerialFormat) -> Result<SerialValue, SchemaError>;
+    fn serialize(&self, serial: &mut impl SerialFormat) -> Result<SerialValue, SchemaError>;
 }
+
 
 pub mod macros {
     #[macro_export]

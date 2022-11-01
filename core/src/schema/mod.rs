@@ -19,4 +19,6 @@ pub use indirect_mutation::*;
 pub use serial::*;
 pub use serial_repr::*;
 
-pub use serial_json::*;
+pub mod ext {
+    pub use super::serial_json::*;
+}

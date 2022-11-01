@@ -9,11 +9,11 @@ pub struct BindOptions {
 
 #[derive(Debug)]
 pub enum CommunicationError {
-    TODO
+    TODO(String)
 }
 
 impl From<SchemaError> for CommunicationError {
-    fn from(_: SchemaError) -> Self {
-        CommunicationError::TODO
+    fn from(err: SchemaError) -> Self {
+        CommunicationError::TODO(format!("comm err from schema {:?}", err))
     }
 }

@@ -41,5 +41,5 @@ pub trait SerialFormat:
     fn lookup(&self, key: &str) -> Result<Self, SchemaError>;
     fn elements(&self) -> Result<Vec<Self>, SchemaError>;
     fn write(&mut self, indirect: IndirectValue) -> Result<(), SchemaError>;
-    fn flush(self) -> Result<SerialValue, SchemaError>;
+    fn flush(&self) -> Result<SerialValue, SchemaError>; // TODO make consume self
 }

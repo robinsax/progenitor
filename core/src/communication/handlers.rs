@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::SerialValue;
+use crate::{SerialValue, PersistentStore, ext::PersistenceDriver, SerialRepr};
 
 use super::common::CommunicationError;
 
@@ -48,72 +48,25 @@ impl From<CommunicationError> for Response {
 
 #[async_trait]
 pub trait AsyncHandler: Send + Sync {
-    fn async_route(&self) -> Route;
-    async fn handle_async(&self, req: &Request) -> Result<(), CommunicationError>;
+    fn new() -> Self;
+    async fn handle_async(&self, req: Request) -> Result<(), CommunicationError>;
 }
 
 #[async_trait]
 pub trait SyncHandler: Send + Sync {
-    fn sync_route(&self) -> Route;
-    async fn handle_sync(&self, req: &Request) -> Result<Response, CommunicationError>;
+    fn new() -> Self;
+    async fn handle_sync(&self, req: Request) -> Result<Response, CommunicationError>;
 }
 
 #[async_trait]
 impl<T: AsyncHandler> SyncHandler for T {
-    fn sync_route(&self) -> Route {
-        self.async_route()
+    fn new() -> Self {
+        T::new()        
     }
-    
-    async fn handle_sync(&self, req: &Request) -> Result<Response, CommunicationError> {
+
+    async fn handle_sync(&self, req: Request) -> Result<Response, CommunicationError> {
         self.handle_async(req).await?;
 
         Ok(Response::Success(SerialValue::empty()))
-    }
-}
-
-#[derive(Clone)]
-pub struct RoutingHandler {
-    // TODO horrible perf
-    routes: Arc<Vec<(Route, Box<dyn SyncHandler>)>>
-}
-
-#[async_trait]
-impl SyncHandler for RoutingHandler {
-    fn sync_route(&self) -> Route {
-        "*".into()
-    }
-
-    async fn handle_sync(&self, req: &Request) -> Result<Response, CommunicationError> {
-        for (route, handler) in self.routes.as_slice() {
-            if route.path == req.route.path {
-                return handler.handle_sync(req).await;
-            }
-        }
-
-        Ok(Response::Error(ResponseError::TODO("no route match".into())))
-    }
-}
-
-pub trait RootHandler: SyncHandler {
-    fn deep_clone(&self) -> Box<dyn RootHandler>;
-}
-
-impl Clone for Box<dyn RootHandler> {
-    fn clone(&self) -> Box<dyn RootHandler> {
-        self.deep_clone()
-    }
-}
-
-impl RoutingHandler {
-    pub fn new(routes: Vec<(Route, Box<dyn SyncHandler>)>) -> Self {
-        Self{
-            routes: Arc::new(routes)
-        }
-    }
-}
-
-impl RootHandler for RoutingHandler {
-    fn deep_clone(&self) -> Box<dyn RootHandler> {
-        Box::new(self.clone())
     }
 }

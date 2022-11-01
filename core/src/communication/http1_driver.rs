@@ -1,3 +1,6 @@
+use std::net::SocketAddr;
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use bytes::Bytes;
 use tokio::{task, net::TcpListener, io::Error as TokioIoError};
@@ -5,18 +8,18 @@ use hyper::{service::service_fn, server::conn::http1::Builder, Error}; // TODO l
 use http_body_util::{Full, BodyExt};
 
 use super::common::{BindOptions, CommunicationError};
-use super::handlers::{Route, Request, RootHandler, Response};
+use super::handlers::{Route, Request, SyncHandler, Response};
 use super::driver::{CommunicationDriver};
 
 impl From<TokioIoError> for CommunicationError {
-    fn from(_: TokioIoError) -> Self {
-        CommunicationError::TODO
+    fn from(err: TokioIoError) -> Self {
+        CommunicationError::TODO(format!("comm from tokio io {:?}", err))
     }
 }
 
 impl From<Error> for CommunicationError {
-    fn from(_: Error) -> Self {
-        CommunicationError::TODO
+    fn from(err: Error) -> Self {
+        CommunicationError::TODO(format!("comm from hyper {:?}", err))
     }
 }
 
@@ -44,28 +47,28 @@ async fn prepare_response(resp: Response) -> hyper::Response<Full<Bytes>> {
 }
 
 #[async_trait]
-impl CommunicationDriver for Http1CommunicationDriver {
-    async fn handle_connections(&mut self, handler: &Box<dyn RootHandler>) -> Result<(), CommunicationError> {
+impl<H: SyncHandler + 'static> CommunicationDriver<H> for Http1CommunicationDriver {
+    fn new() -> Self {
+        Self {
+            bind_options: BindOptions { address: "0.0.0.0:8000".parse().unwrap() }
+        }
+    }
+
+    async fn handle_connections(self) -> Result<(), CommunicationError> {
         let listener = TcpListener::bind(self.bind_options.address).await?;
 
         loop {
             let (stream, _) = listener.accept().await?;
   
-            let handler_ref = handler.clone();
-
             task::spawn(async {
                 Builder::new()
-                    .serve_connection(stream, service_fn(move |hyper_request: hyper::Request<hyper::body::Incoming>| {
-                        let future_handler_ref = handler_ref.clone(); // TODO deal with this, double move = brutal
-
-                        async move {
+                    .serve_connection(stream, service_fn(|hyper_request: hyper::Request<hyper::body::Incoming>| {
+                        async {
                             Ok::<_, hyper::Error>(prepare_response(
                                 match prepare_request(hyper_request).await {
-                                    Ok(req) => {
-                                        match future_handler_ref.handle_sync(&req).await {
-                                            Ok(response) => response,
-                                            Err(err) => err.into()
-                                        }
+                                    Ok(req) => match H::new().handle_sync(req).await {
+                                        Ok(resp) => resp,
+                                        Err(err) => err.into()
                                     },
                                     Err(err) => err.into()
                                 }
@@ -77,4 +80,3 @@ impl CommunicationDriver for Http1CommunicationDriver {
         }
     }
 }
-

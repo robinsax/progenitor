@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 
+use crate::SyncHandler;
+
 use super::common::CommunicationError;
-use super::handlers::RootHandler;
 
 #[async_trait]
-pub trait CommunicationDriver: Sync + Send {
-    async fn handle_connections(&mut self, handler: &Box<dyn RootHandler>) -> Result<(), CommunicationError>;
+pub trait CommunicationDriver<H: SyncHandler>: Sync + Send {
+    fn new() -> Self;
+    async fn handle_connections(self) -> Result<(), CommunicationError>;
 }

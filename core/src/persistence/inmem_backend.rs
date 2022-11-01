@@ -80,8 +80,8 @@ impl SerialFormat for DummySerial {
         Ok(())
     }
 
-    fn flush(self) -> Result<SerialValue, SchemaError> {
-        Ok(SerialValue::new_write_buffer())
+    fn flush(&self) -> Result<SerialValue, SchemaError> {
+        Ok(SerialValue::empty())
     }
 }
 
@@ -163,8 +163,12 @@ impl PersistenceDriver for InMemoryPersistenceDriver {
     async fn insert<T: SerialRepr>(&self, new_data: Vec<T>) -> Result<(), PersistenceError> {
         let mut indirects: Vec<IndirectValue> = Vec::new();
         for item in new_data {
-            let indirect: IndirectValue = item.try_into()?; // TODO this is why the hack trait bound exists
-            indirects.push(indirect);
+            let mut ser = DummySerial(IndirectValue::Null);
+
+            // TODO horrible hack
+            item.serialize(&mut ser)?;
+
+            indirects.push(ser.0);
         }
 
         let mut data = self.data.write()?;
