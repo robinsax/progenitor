@@ -20,3 +20,8 @@ the experiment with this project is to see whether the the following concept is 
 
 the rationale is most problems are engineering time constrainted, but high-abstraction or no-code system that reduce engineering time
 investment up front often limit long-term evolution
+
+approach is to
+
+* get a functional foundation
+* use that foundation to progressively build the supporting platform

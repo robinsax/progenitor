@@ -7,8 +7,8 @@ use progenitor::ext::{
     InMemoryPersistenceDriver, Http1CommunicationDriver, JsonSerial
 };
 use progenitor::{
-    SyncHandler, IndirectType, SerialFormat, SerialValue, SchemaError,
-    Request, Response, PersistentStore, Server, SerialRepr, CommunicationError
+    SyncHandler, Type, SerialFormat, SerialValue, SchemaError,
+    Request, Response, PersistentStore, Server, SerialRepr, CommError
 };
 
 #[derive(Clone)]
@@ -18,12 +18,12 @@ pub struct Greeting {
 
 // xxx gen
 impl SerialRepr for Greeting {
-    fn schema() -> IndirectType {
+    fn schema() -> Type {
         let mut fields = HashMap::new();
 
-        fields.insert("message".into(), IndirectType::String);
+        fields.insert("message".into(), Type::String);
 
-        IndirectType::Map(fields)
+        Type::Map(fields)
     }
 
     fn deserialize(serial: impl SerialFormat) -> Result<Self, SchemaError> {
@@ -48,12 +48,12 @@ pub struct ClientInfo {
 
 // xxx gen
 impl SerialRepr for ClientInfo {
-    fn schema() -> IndirectType {
+    fn schema() -> Type {
         let mut fields = HashMap::new();
 
-        fields.insert("name".into(), IndirectType::String);
+        fields.insert("name".into(), Type::String);
 
-        IndirectType::Map(fields)
+        Type::Map(fields)
     }
 
     fn deserialize(serial: impl SerialFormat) -> Result<Self, SchemaError> {
@@ -87,7 +87,7 @@ impl SyncHandler for HelloHandler {
         }
     }
 
-    async fn handle_sync(&self, req: Request) -> Result<Response, CommunicationError> {
+    async fn handle_sync(&self, req: Request) -> Result<Response, CommError> {
         let who = ClientInfo::deserialize(JsonSerial::from(req.payload))?;
 
         let greeting = Greeting {
@@ -112,7 +112,7 @@ impl SyncHandler for Router {
         }
     }
 
-    async fn handle_sync(&self, req: Request) -> Result<Response, CommunicationError> {
+    async fn handle_sync(&self, req: Request) -> Result<Response, CommError> {
         match req.route.path {
             _ => self.hello.handle_sync(req).await,
         }

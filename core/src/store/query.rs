@@ -2,22 +2,23 @@ use std::marker::PhantomData;
 
 use async_trait::async_trait;
 
-use crate::schema::{IndirectExpression, SerialRepr};
+use crate::schema::Expression;
+use crate::serial::StreamSerial;
 
-use super::common::PersistenceError;
+use super::errors::PersistenceError;
 
 #[async_trait]
-pub trait QueryExecutor<T: SerialRepr>: Send + Sync {
-    async fn load(&self, filter: IndirectExpression, offset: usize, limit: usize) -> Result<Vec<T>, PersistenceError>;
+pub trait QueryExecutor<T: StreamSerial>: Send + Sync {
+    async fn load(&self, filter: Expression, offset: usize, limit: usize) -> Result<Vec<T>, PersistenceError>;
 }
 
-pub struct Query<'b, T: SerialRepr, E: QueryExecutor<T>> {
+pub struct Query<'b, T: StreamSerial, E: QueryExecutor<T>> {
     _data: PhantomData<T>,
     executor: &'b E,
-    filter: Option<IndirectExpression>,
+    filter: Option<Expression>,
 }
 
-impl<'b, T: SerialRepr + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
+impl<'b, T: StreamSerial + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
     pub fn new(executor: &'b E) -> Self {
         Self{
             _data: PhantomData,
@@ -26,7 +27,7 @@ impl<'b, T: SerialRepr + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
         }
     }
 
-    pub fn filter(mut self, condition: IndirectExpression) -> Query<'b, T, E> {
+    pub fn filter(mut self, condition: Expression) -> Query<'b, T, E> {
         self.filter = Some(condition);
 
         self
@@ -34,8 +35,8 @@ impl<'b, T: SerialRepr + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
 
     async fn load(self, limit: usize, offset: usize) -> Result<Vec<T>, PersistenceError> {
         let filter = match self.filter {
-            Some(f) => f,
-            None => return Err(PersistenceError::TODO)
+            Some(expr) => expr,
+            None => return Err(PersistenceError::QueryInvalid("Filter required when loading".into()))
         };
 
         let literal_results = self.executor.load(filter, limit, offset).await?;
