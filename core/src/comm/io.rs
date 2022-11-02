@@ -2,14 +2,16 @@ use crate::serial::SerialValue;
 
 #[derive(Clone)]
 pub struct Route {
-    pub path: String,
+    path: String,
 }
 
 impl Route {
     pub fn new(path: String) -> Self {
-        Self {
-            path
-        }
+        Self { path }
+    }
+
+    pub fn path_ref(&self) -> &str {
+        &self.path
     }
 }
 
@@ -20,16 +22,41 @@ impl From<&'static str> for Route {
 }
 
 pub struct Request {
-    pub route: Route,
-    pub payload: SerialValue
+    route: Route,
+    payload: SerialValue
+}
+
+impl Request {
+    pub fn new(route: Route, payload: SerialValue) -> Self {
+        Self { route, payload }
+    }
+
+    pub fn payload_ref(&self) -> &SerialValue {
+        &self.payload
+    }
+
+    pub fn route_ref(&self) -> &Route {
+        &self.route
+    }
 }
 
 pub struct Response {
-    pub payload: SerialValue
+    payload: SerialValue
 }
 
-impl From<()> for Response {
-    fn from(_: ()) -> Self {
-        Response { payload: SerialValue::empty() }
+// TODO: Remove. Hack for State.take().
+impl Clone for Response {
+    fn clone(&self) -> Self {
+        Self { payload: self.payload.try_clone_buffer().unwrap() }
+    }
+}
+
+impl Response {
+    pub fn new(payload: SerialValue) -> Self {
+        Self { payload }
+    }
+
+    pub fn payload(self) -> SerialValue {
+        self.payload
     }
 }

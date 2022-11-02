@@ -5,15 +5,23 @@ use std::pin::Pin;
 use std::sync::{Arc, RwLock, PoisonError};
 
 use crate::errors::InitError;
+use crate::serial::SerialError;
 
 use super::state::{State, StateError};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum EffectError {
     Missing(String),
     State(StateError),
+    Serial(SerialError),
     Poisoned,
     Internal(String)
+}
+
+impl<T> From<PoisonError<T>> for EffectError {
+    fn from(_: PoisonError<T>) -> Self {
+        Self::Poisoned
+    }
 }
 
 impl From<StateError> for EffectError {
@@ -22,9 +30,9 @@ impl From<StateError> for EffectError {
     }
 }
 
-impl<T> From<PoisonError<T>> for EffectError {
-    fn from(_: PoisonError<T>) -> Self {
-        Self::Poisoned
+impl From<SerialError> for EffectError {
+    fn from(err: SerialError) -> Self {
+        Self::Serial(err)
     }
 }
 
@@ -169,7 +177,7 @@ mod tests {
 
         let state = State::new();
 
-        assert_eq!(executor.execute("seq", &state).await, Ok(()));
+        assert!(executor.execute("seq", &state).await.is_ok());
 
         assert!(state.get::<String>("a").is_ok());
         assert_eq!(state.get::<String>("a").unwrap().to_string(), "a".to_string());

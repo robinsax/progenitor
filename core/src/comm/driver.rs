@@ -8,7 +8,7 @@ use super::errors::CommError;
 use super::server::Server;
 
 #[async_trait]
-pub trait CommunicationDriver
+pub trait CommDriver
 where
     Self: Sync + Send + FromEnvConfig
 {

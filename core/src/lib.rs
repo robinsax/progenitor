@@ -11,7 +11,8 @@ mod comm;
 mod store;
 
 // TODO: no *
-pub use env_config::EnvConfig;
+pub use errors::InitError;
+pub use env_config::{EnvConfig, FromEnvConfig};
 pub use schema::*;
 pub use serial::*;
 pub use logic::*;

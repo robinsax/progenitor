@@ -7,7 +7,7 @@ use super::value::SerialValue;
 
 // TODO: Not too sure about the TryFroms.
 
-pub trait SerialFormatWriter
+pub trait SerialWriter
 where
     Self: Into<SerialValue> + TryFrom<Value, Error = SerialError>
 {
@@ -16,7 +16,7 @@ where
     fn flush(self) -> Result<SerialValue, SerialError>;
 }
 
-pub trait SerialFormatReader
+pub trait SerialReader
 where
     Self: From<SerialValue> + TryInto<Value, Error = SerialError>
 {
@@ -26,8 +26,8 @@ where
 
 pub trait SerialFormat
 where
-    Self::Reader: SerialFormatReader,
-    Self::Writer: SerialFormatWriter
+    Self::Reader: SerialReader,
+    Self::Writer: SerialWriter
 {
     type Writer;
     type Reader;

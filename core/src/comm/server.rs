@@ -10,12 +10,12 @@ use crate::errors::InitError;
 use crate::env_config::{EnvConfig, FromEnvConfig};
 
 use super::errors::CommError;
-use super::driver::CommunicationDriver;
+use super::driver::CommDriver;
 use super::io::{Request, Response};
 
 pub struct Server<D>
 where
-    D: CommunicationDriver
+    D: CommDriver
 {
     env_config: EnvConfig,
     handler: Option<HandlerFn>,
@@ -24,7 +24,7 @@ where
 
 impl<D> FromEnvConfig for Server<D>
 where
-    D: CommunicationDriver
+    D: CommDriver
 {
     fn try_from_config(env_config: EnvConfig) -> Result<Self, InitError> {
         Ok(Self {
@@ -37,7 +37,7 @@ where
 
 impl<D> Server<D>
 where
-    D: CommunicationDriver
+    D: CommDriver
 {
     pub async fn start(mut self, handler: HandlerFn) -> Result<(), CommError> {
         self.handler = Some(handler);
@@ -47,9 +47,7 @@ where
 
     pub fn handle_err(&self, err: CommError) -> Response {
         // TODO: Not this.
-        Response {
-            payload: Bytes::from(format!("Server error: {:?}", err)).into()
-        }
+        Response::new(Bytes::from(format!("Server error: {:?}", err)).into())
     }
 
     async fn handle_impl(&self, request: Request) -> Response {

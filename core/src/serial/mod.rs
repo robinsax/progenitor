@@ -11,7 +11,7 @@ mod ext_pseudo;
 
 pub use errors::SerialError;
 pub use value::SerialValue;
-pub use format::SerialFormat;
+pub use format::{SerialFormat, SerialReader, SerialWriter};
 pub use conversion::{StreamSerial, DirectSerial};
 
 pub mod ext {

@@ -2,7 +2,7 @@ use crate::schema::Type;
 
 use super::errors::SerialError;
 use super::value::SerialValue;
-use super::format::{SerialFormatReader, SerialFormatWriter, SerialFormat};
+use super::format::{SerialReader, SerialWriter, SerialFormat};
 
 // Conversion trait for concrete data models.
 pub trait StreamSerial
@@ -10,8 +10,8 @@ where
     Self: Sized + Send + Sync
 {
     fn schema() -> Type;
-    fn stream_deserialize(reader: &mut impl SerialFormatReader) -> Result<Self, SerialError>;
-    fn stream_serialize(self, serial: &mut impl SerialFormatWriter) -> Result<(), SerialError>;
+    fn stream_deserialize(reader: &mut impl SerialReader) -> Result<Self, SerialError>;
+    fn stream_serialize(self, serial: &mut impl SerialWriter) -> Result<(), SerialError>;
 }
 
 pub trait DirectSerial

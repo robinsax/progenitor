@@ -10,6 +10,7 @@ mod http1_driver;
 // TODO no *
 pub use errors::*;
 pub use handlers::*;
+pub use io::*;
 pub use server::*;
 
 pub mod ext {

@@ -8,7 +8,7 @@ use crate::schema::Value;
 
 use super::errors::SerialError;
 use super::value::SerialValue;
-use super::format::{SerialFormat, SerialFormatReader, SerialFormatWriter};
+use super::format::{SerialFormat, SerialReader, SerialWriter};
 
 impl From<serde::Error> for SerialError {
     fn from(err: serde::Error) -> Self {
@@ -123,7 +123,7 @@ impl TryFrom<Value> for JsonSerialWriter {
     }
 }
 
-impl SerialFormatWriter for JsonSerialWriter {
+impl SerialWriter for JsonSerialWriter {
     fn write(&mut self, indirect: Value) -> Result<(), SerialError> {
         use bytes::Bytes;
 
@@ -180,7 +180,7 @@ impl JsonSerialReader {
     }
 }
 
-impl SerialFormatReader for JsonSerialReader {
+impl SerialReader for JsonSerialReader {
     fn lookup(&self, key: &str) -> Result<Self, SerialError> {
         Ok(Self { value: Ok(self.value.clone()?.lookup(key)?) })
     }
@@ -242,7 +242,7 @@ mod tests {
             Type::Map(fields)
         }
 
-        fn stream_deserialize(serial: &mut impl SerialFormatReader) -> Result<Self, SerialError> {
+        fn stream_deserialize(serial: &mut impl SerialReader) -> Result<Self, SerialError> {
             let elements = serial.lookup("d")?;
             let d = elements_auto!(elements);
 
@@ -254,7 +254,7 @@ mod tests {
             })
         }
     
-        fn stream_serialize(self, serial: &mut impl SerialFormatWriter) -> Result<(), SerialError> {
+        fn stream_serialize(self, serial: &mut impl SerialWriter) -> Result<(), SerialError> {
             let mut fields = HashMap::new();
 
             let src = self.clone();

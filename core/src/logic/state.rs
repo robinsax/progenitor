@@ -47,11 +47,12 @@ impl<'s> State {
             return Err(StateError::InvalidType(key));
         }
 
-        let cast_value = unsafe { &*(
-            &cell.1
+        let cast_value = unsafe {
+            &*(&cell.1
                 as *const Box<Mutex<dyn Any + Send + Sync>>
                 as *const Box<Mutex<T>>
-        ) };
+            )
+        };
 
         Ok(cast_value.lock()?)
     }
@@ -74,12 +75,38 @@ impl<'s> State {
         let new_cell_content = Box::new(Mutex::new(value));
 
         let abstract_value = new_cell_content
-                as Box<Mutex<T>>
                 as Box<Mutex<dyn Any + Send + Sync>>;
 
         state.insert(key, StateCell(type_id, abstract_value));
 
         Ok(())
+    }
+
+    pub fn take<T>(&self, key_src: impl Into<String>) -> Result<T, StateError>
+    where
+        // TODO: Make this an actual take and remove the Clone bound.
+        T: Send + Sync + Clone + 'static
+    {
+        let mut state = self.state.write()?;
+        let key: String = key_src.into();
+
+        let cell = match state.remove(&key) {
+            None => return Err(StateError::Empty(key)),
+            Some(cell) => cell
+        };
+
+        if TypeId::of::<T>() != cell.0 {
+            return Err(StateError::InvalidType(key));
+        }
+
+        let cast_value = unsafe {
+            &*(&cell.1
+                as *const Box<Mutex<dyn Any + Send + Sync>>
+                as *const Box<Mutex<T>>
+            )
+        };
+
+        Ok(cast_value.lock()?.clone())
     }
 }
 

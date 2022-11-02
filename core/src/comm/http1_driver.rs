@@ -15,7 +15,7 @@ use crate::errors::InitError;
 
 use super::errors::CommError;
 use super::server::Server;
-use super::driver::CommunicationDriver;
+use super::driver::CommDriver;
 use super::io::{Request, Response, Route};
 
 impl From<AddrParseError> for InitError {
@@ -41,12 +41,12 @@ async fn prep_request(hyper_req: hyper::Request<hyper::body::Incoming>) -> Resul
     let path = hyper_req.uri().clone().to_string();
     let raw = hyper_req.collect().await?.to_bytes();
 
-    Ok(Request { route: Route::new(path), payload: raw.into() })
+    Ok(Request::new(Route::new(path), raw.into()))
 }
 
 async fn prep_response(resp: Response) -> hyper::Response<Full<Bytes>> {
     hyper::Response::new(
-        match resp.payload.try_into_bytes() {
+        match resp.payload().try_into_bytes() {
             Ok(bytes) => Full::new(bytes),
             Err(_) => {
                 todo!("TODO: Response error handling");
@@ -55,21 +55,21 @@ async fn prep_response(resp: Response) -> hyper::Response<Full<Bytes>> {
     )
 }
 
-pub struct Http1CommunicationDriver {
+pub struct Http1Comm {
     socker_addr: SocketAddr
 }
 
-impl FromEnvConfig for Http1CommunicationDriver {
-    fn try_from_config(_: EnvConfig) -> Result<Self, InitError> {
-        Ok(Http1CommunicationDriver {
-            socker_addr: "TODO".parse()?
+impl FromEnvConfig for Http1Comm {
+    fn try_from_config(env: EnvConfig) -> Result<Self, InitError> {
+        Ok(Http1Comm {
+            socker_addr: env.get_var("COMM_HTTP1_SOCK_ADDR")?.parse()?
         })
     }
 }
 
 #[async_trait]
-impl CommunicationDriver for Http1CommunicationDriver {
-    async fn handle_connections(self, server: Arc<Server<Http1CommunicationDriver>>) -> Result<(), CommError> {
+impl CommDriver for Http1Comm {
+    async fn handle_connections(self, server: Arc<Server<Http1Comm>>) -> Result<(), CommError> {
         let listener = TcpListener::bind(self.socker_addr).await?;
 
         loop {

@@ -2,7 +2,7 @@ use crate::schema::Value;
 
 use super::errors::SerialError;
 use super::value::SerialValue;
-use super::format::{SerialFormat, SerialFormatReader, SerialFormatWriter};
+use super::format::{SerialFormat, SerialReader, SerialWriter};
 
 pub struct PseudoSerialWriter {
     value: Value
@@ -22,7 +22,7 @@ impl TryFrom<Value> for PseudoSerialWriter {
     }
 }
 
-impl SerialFormatWriter for PseudoSerialWriter {
+impl SerialWriter for PseudoSerialWriter {
     fn flush(self) -> Result<SerialValue, SerialError> {
         Ok(SerialValue::Pseudo(self.value))
     }
@@ -61,7 +61,7 @@ impl TryFrom<PseudoSerialReader> for Value {
     }
 }
 
-impl SerialFormatReader for PseudoSerialReader {
+impl SerialReader for PseudoSerialReader {
     fn elements(&self) -> Result<Vec<Self>, SerialError> {
         match &self.value {
             None => Err(SerialError::DataFormat("Invalid serial format for this reader".into())),
