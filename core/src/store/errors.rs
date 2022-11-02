@@ -1,21 +1,30 @@
+use std::sync::PoisonError;
+
 use crate::schema::SchemaError;
 use crate::serial::SerialError;
 
 #[derive(Debug)]
-pub enum PersistenceError {
+pub enum StoreError {
     SchemaError(SchemaError),
     SerialError(SerialError),
     QueryInvalid(String),
-    Poisoned
+    Poisoned,
+    Backend
 }
 
-impl From<SchemaError> for PersistenceError {
+impl<T> From<PoisonError<T>> for StoreError {
+    fn from(_: PoisonError<T>) -> StoreError {
+        StoreError::Poisoned
+    }
+}
+
+impl From<SchemaError> for StoreError {
     fn from(err: SchemaError) -> Self {
         Self::SchemaError(err)
     }
 }
 
-impl From<SerialError> for PersistenceError {
+impl From<SerialError> for StoreError {
     fn from(err: SerialError) -> Self {
         Self::SerialError(err)
     }

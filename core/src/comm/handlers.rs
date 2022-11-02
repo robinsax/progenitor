@@ -19,7 +19,7 @@ pub enum HandlerError {
     Init(InitError),
     Effect(EffectError),
     // TODO: Diagnostic?
-    Interal
+    Internal
 }
 
 impl From<SchemaError> for HandlerError {

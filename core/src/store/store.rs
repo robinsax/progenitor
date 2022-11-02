@@ -1,17 +1,23 @@
 use std::marker::PhantomData;
+use std::pin::Pin;
+use std::future::Future;
 
 use async_trait::async_trait;
 
+use crate::{FromEnvConfig, EnvConfig};
+use crate::errors::InitError;
 use crate::schema::{Type, Expression};
 use crate::serial::StreamSerial;
 
-use super::errors::PersistenceError;
-use super::driver::PersistenceDriver;
+use super::errors::StoreError;
+use super::driver::StoreDriver;
 use super::query::{Query, QueryExecutor};
 
-pub struct PersistentStore<T, D>
+// TODO: Clone here is temporary.
+#[derive(Clone)]
+pub struct Store<T, D>
 where
-    D: PersistenceDriver
+    D: StoreDriver
 {
     phantom: PhantomData<T>,
     driver: D,
@@ -19,38 +25,49 @@ where
 }
 
 #[async_trait]
-impl<T, D> QueryExecutor<T> for PersistentStore<T, D>
+impl<T, D> QueryExecutor<T> for Store<T, D>
 where 
     T: StreamSerial + Clone + Send + Sync,
-    D: PersistenceDriver
+    D: StoreDriver
 {
-    async fn load(&self, filter: Expression, offset: usize, limit: usize) -> Result<Vec<T>, PersistenceError> {
-        filter.validate(&self.schema)?;
+    async fn load(&self, filter: Option<Expression>, offset: usize, limit: Option<usize>) -> Result<Vec<T>, StoreError> {
+        if let Some(filter_expr) = &filter {
+            filter_expr.validate(&self.schema)?;
+        }
 
-        self.driver.load(filter, limit, offset).await
+        self.driver.load(filter, offset, limit)
     }
 }
 
-impl<T, D> PersistentStore<T, D>
-where 
+impl<T, D> FromEnvConfig for Store<T, D>
+where
     T: StreamSerial + Clone + Send + Sync,
-    D: PersistenceDriver
+    D: StoreDriver
 {
-    pub fn new(schema: Type, driver: D) -> Self {
-        Self {
+    fn try_from_config(env_config: EnvConfig) -> Result<Self, InitError> {
+        Ok(Self {
             phantom: PhantomData,
-            schema,
-            driver
-        }
+            schema: T::schema(),
+            driver: D::try_from_config(env_config)?
+        })
     }
+}
 
+impl<T, D> Store<T, D>
+where 
+    // TODO: Why Clone??
+    T: StreamSerial + Clone + Send + Sync,
+    D: StoreDriver
+{
     pub fn query(&self) -> Query<T, Self> {
         Query::new(&self)
     }
 
-    pub async fn put(&self, item: T) -> Result<T, PersistenceError> {
-        self.driver.insert(Vec::from([item.clone()])).await?;
+    pub fn put(&self, item: T) -> Pin<Box<dyn Future<Output = Result<T, StoreError>> + Send + Sync + '_>> {
+        Box::pin(async move {
+            self.driver.insert(Vec::from([item.clone()]))?;
 
-        Ok(item)
+            Ok(item)
+        })
     }
 }

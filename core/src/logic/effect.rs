@@ -4,6 +4,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, RwLock, PoisonError};
 
+use crate::store::StoreError;
 use crate::errors::InitError;
 use crate::serial::SerialError;
 
@@ -14,6 +15,7 @@ pub enum EffectError {
     Missing(String),
     State(StateError),
     Serial(SerialError),
+    Store(StoreError),
     Poisoned,
     Internal(String)
 }
@@ -33,6 +35,19 @@ impl From<StateError> for EffectError {
 impl From<SerialError> for EffectError {
     fn from(err: SerialError) -> Self {
         Self::Serial(err)
+    }
+}
+
+impl From<StoreError> for EffectError {
+    fn from(err: StoreError) -> Self {
+        Self::Store(err)
+    }
+}
+
+// TODO: This, better.
+impl From<InitError> for EffectError {
+    fn from(init: InitError) -> Self {
+        Self::Internal(format!("{:?}", init))
     }
 }
 
@@ -118,9 +133,9 @@ impl EffectExecutor {
 
 // Macro for an effect function that is a sequence of effects:
 //
-//  make_sequence_effect_fn(my_sequence_effect, vec!["step_1", "step_2"])
+//  make_flow_effect_fn(my_sequence_effect, vec!["step_1", "step_2"])
 #[macro_export]
-macro_rules! make_sequence_effect_fn {
+macro_rules! make_flow_effect_fn {
     ($n: ident, $s: expr) => {
         #[apply($crate::effect_fn)]
         pub async fn $n<'ef>(state: &'ef $crate::State) -> Result<(), $crate::EffectError> {
@@ -136,7 +151,7 @@ macro_rules! make_sequence_effect_fn {
         }
     };
 }
-pub use make_sequence_effect_fn;
+pub use make_flow_effect_fn;
 
 #[cfg(test)]
 mod tests {
@@ -164,7 +179,7 @@ mod tests {
         Ok(())
     }
 
-    make_sequence_effect_fn!(simple_seq, vec!["a", "b", "c"]);
+    make_flow_effect_fn!(simple_seq, vec!["a", "b", "c"]);
 
     #[tokio::test]
     async fn execute_simple_sequence() {

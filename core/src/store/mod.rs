@@ -5,15 +5,15 @@ mod driver;
 mod query;
 mod store;
 
-pub use errors::PersistenceError;
+pub use errors::StoreError;
 pub use query::Query;
-pub use store::PersistentStore;
+pub use store::Store;
 
 // TODO: Should be a seperate (extension) crate.
-mod ext_inmem;
+mod ext_mem;
 
 pub mod ext {
-    pub use super::driver::PersistenceDriver;
+    pub use super::driver::StoreDriver;
 
-    pub use super::ext_inmem::InMemoryPersistenceDriver;
+    pub use super::ext_mem::MemStore;
 }

@@ -5,17 +5,19 @@ use async_trait::async_trait;
 use crate::schema::Expression;
 use crate::serial::StreamSerial;
 
-use super::errors::PersistenceError;
+use super::errors::StoreError;
 
 #[async_trait]
 pub trait QueryExecutor<T: StreamSerial>: Send + Sync {
-    async fn load(&self, filter: Expression, offset: usize, limit: usize) -> Result<Vec<T>, PersistenceError>;
+    async fn load(&self, filter: Option<Expression>, offset: usize, limit: Option<usize>) -> Result<Vec<T>, StoreError>;
 }
 
 pub struct Query<'b, T: StreamSerial, E: QueryExecutor<T>> {
     _data: PhantomData<T>,
     executor: &'b E,
     filter: Option<Expression>,
+    limit: Option<usize>,
+    offset: usize
 }
 
 impl<'b, T: StreamSerial + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
@@ -23,7 +25,9 @@ impl<'b, T: StreamSerial + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
         Self{
             _data: PhantomData,
             executor,
-            filter: None
+            filter: None,
+            limit: None,
+            offset: 0
         }
     }
 
@@ -33,22 +37,23 @@ impl<'b, T: StreamSerial + Clone, E: QueryExecutor<T>> Query<'b, T, E> {
         self
     }
 
-    async fn load(self, limit: usize, offset: usize) -> Result<Vec<T>, PersistenceError> {
-        let filter = match self.filter {
-            Some(expr) => expr,
-            None => return Err(PersistenceError::QueryInvalid("Filter required when loading".into()))
-        };
+    pub fn limit(mut self, limit: usize) -> Query<'b, T, E> {
+        self.limit = Some(limit);
 
-        let literal_results = self.executor.load(filter, limit, offset).await?;
+        self
+    }
+
+    pub async fn all(self) -> Result<Vec<T>, StoreError> {
+        let literal_results = self.executor.load(self.filter, self.offset, self.limit).await?;
         
         Ok(literal_results.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn one(self) -> Result<Option<T>, PersistenceError> {
-        let loaded = self.load(1, 0).await?;
+    pub async fn one(self) -> Result<Option<T>, StoreError> {
+        let loaded = self.limit(1).all().await?;
 
         match loaded.len() > 0 {
-            true => Ok(Some(loaded[0].clone())), // TODO wtf cant own it without mem::replace?
+            true => Ok(Some(loaded[0].clone())), // TODO: Can't own it without mem::replace?
             false => Ok(None)
         }
     }
