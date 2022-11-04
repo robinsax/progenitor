@@ -1,9 +1,10 @@
 tmp/
 **/node_modules/
 **/target/
-infra/*.hcl
-infra/*.info
-infra/.terraform
-infra/*.tfstate
-infra/*.backup
-infra/*.tfvars
+**/dist/
+*.hcl
+*.info
+.terraform
+*.tfstate
+*.backup
+*.tfvars
