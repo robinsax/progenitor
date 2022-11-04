@@ -1,0 +1,8 @@
+@import '@/common.scss';
+
+.error-view {
+    margin: $s-space * 2;
+    padding: $s-space;
+    border-radius: $s-rounding;
+    background-color: $c-err;
+}

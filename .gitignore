@@ -1,7 +1,6 @@
 tmp/
-node_modules/
-api/target/
-core/target/
+**/node_modules/
+**/target/
 infra/*.hcl
 infra/*.info
 infra/.terraform
