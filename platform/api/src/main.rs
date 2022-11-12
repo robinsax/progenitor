@@ -2,6 +2,8 @@
 #[macro_use]
 extern crate macro_rules_attribute;
 
+mod model;
+
 use std::collections::HashMap;
 
 use progenitor::{

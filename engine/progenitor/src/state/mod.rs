@@ -3,7 +3,7 @@
 // * Work in WASM and standard targets.
 // * Async acquisition.
 // * Multiple readers.
-// * Have guards that can span yield points in !Send futures (obviously).
+// * Have guards that can span yield points in Send futures (tricky).
 mod errors;
 mod lock;
 mod futures;

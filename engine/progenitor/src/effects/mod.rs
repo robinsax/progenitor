@@ -1,5 +1,6 @@
 mod errors;
 mod effect;
+mod context;
 
 pub use errors::EffectError;
-pub use effect::{EffectExecutor, EffectFn};
+pub use effect::EffectFn;

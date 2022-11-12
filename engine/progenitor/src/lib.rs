@@ -8,6 +8,9 @@ mod store;
 mod state;
 mod effects;
 
+// TODO: Temporary.
+pub use log;
+
 pub use init::{InitError, InitConfig, ConfigInit};
 pub use schema::{Type, SchemaError, Value, Expression, Mutation};
 pub use serial::{SerialError, SerialFormat, SerialValue};

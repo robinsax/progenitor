@@ -1,0 +1,10 @@
+{
+    "archetype": "schema",
+    "name": "effect_archetype",
+    "value": {
+        "foo": [1],
+        "bar": -1,
+        "baz": "",
+        "big": [{"a": 1, "b": -2}]
+    }
+}

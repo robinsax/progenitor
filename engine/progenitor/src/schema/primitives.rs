@@ -3,7 +3,7 @@ use std::{mem, collections::HashMap};
 
 use super::errors::SchemaError;
 
-// TODO: Needs more variants. Is null a type here?
+// TODO: Needs more variants. Is null a type here? Any probably is.
 #[derive(Debug, Clone)]
 pub enum Type {
     Bool,
@@ -12,6 +12,7 @@ pub enum Type {
     Float64,
     String,
     // TODO: Investigate whether this is the canonical way to prevent infinite size.
+    // Forcing a heap allocation does seem weird but also maybe conceptually correct?
     List(Box<Type>),
     Map(HashMap<String, Type>)
 }
@@ -82,7 +83,7 @@ impl Type {
 }
 
 // Indirectly represented data, with (some) type encapsulation.
-// TODO: More variants.
+// TODO: More variants and way better schema errors.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
@@ -104,6 +105,28 @@ impl Value {
         }
 
         Err(SchemaError::InvalidLookup(Type::try_from(self).ok(), key.into()))
+    }
+
+    pub fn index(&self, i: usize) -> Result<Value, SchemaError> {
+        if let Self::List(members) = self {
+            if i >= members.len() {
+                return Err(SchemaError::InvalidIndex(None, Some(i)))
+            }
+
+            return Ok(members[i].clone());
+        }
+
+        // TODO: Bad.
+        Err(SchemaError::InvalidLookup(None, "list elements".into()))
+    }
+
+    pub fn elements(&self) -> Result<&Vec<Value>, SchemaError> {
+        if let Self::List(members) = self {
+            return Ok(members);
+        }
+
+        // TODO: Bad.
+        Err(SchemaError::InvalidLookup(None, "list elements".into()))
     }
 }
 

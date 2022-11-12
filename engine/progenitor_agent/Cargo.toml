@@ -1,0 +1,16 @@
+[package]
+name = "progenitor_agent"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "agent"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"
+
+[dependencies]
+bytes = "1.2.1"
+progenitor = { path = "../progenitor" }

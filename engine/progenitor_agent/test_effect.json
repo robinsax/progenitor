@@ -1,0 +1,23 @@
+{
+    "archetype": "effect",
+    "name": "foo",
+    "value": {
+        "steps": [
+            [
+                "read_state",
+                {
+                    "type": ["progenitor", "Request"],
+                    "name": "req"
+                }
+            ],
+            [
+                "write_state",
+                { "name": "req" }
+            ],
+            [
+                "invoke_effect",
+                { "effect": ["guh_mod", "guh"] }
+            ]
+        ]
+    }
+}
