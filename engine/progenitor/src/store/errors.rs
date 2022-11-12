@@ -1,31 +1,25 @@
-use std::sync::PoisonError;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 use crate::schema::SchemaError;
-use crate::serial::SerialError;
 
 #[derive(Debug)]
 pub enum StoreError {
-    SchemaError(SchemaError),
-    SerialError(SerialError),
-    QueryInvalid(String),
-    Poisoned,
-    Backend
-}
-
-impl<T> From<PoisonError<T>> for StoreError {
-    fn from(_: PoisonError<T>) -> StoreError {
-        StoreError::Poisoned
-    }
+    Schema(SchemaError),
+    Query(String),
+    Backend(String)
 }
 
 impl From<SchemaError> for StoreError {
     fn from(err: SchemaError) -> Self {
-        Self::SchemaError(err)
+        Self::Schema(err)
     }
 }
 
-impl From<SerialError> for StoreError {
-    fn from(err: SerialError) -> Self {
-        Self::SerialError(err)
+impl Display for StoreError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "store error: {:?}", self)
     }
 }
+
+impl Error for StoreError {}

@@ -1,27 +1,24 @@
-// TODO: Break out into engine / framework / common.
 #[macro_use]
 extern crate macro_rules_attribute;
 
-mod errors;
-mod env_config;
+mod init;
 mod schema;
 mod serial;
-mod logic;
-mod comm;
 mod store;
+mod state;
+mod effects;
 
-// TODO: no *
-pub use errors::InitError;
-pub use env_config::{EnvConfig, FromEnvConfig};
-pub use schema::*;
-pub use serial::*;
-pub use logic::*;
-pub use store::*;
-pub use comm::*;
+pub use init::{InitError, InitConfig, ConfigInit};
+pub use schema::{Type, SchemaError, Value, Expression, Mutation};
+pub use serial::{SerialError, SerialFormat, SerialValue};
+pub use store::{Store, StoreError};
+pub use state::{State, StateCellGuard, StateError};
+pub use effects::{EffectError, EffectFn, EffectExecutor};
 
-// TODO: Temporary.
 pub mod ext {
+    pub use super::state::{LockAtomic, LockAtomicFactory, LockAtomicGuard};
+
+    // TODO: All of these should be crate external.
     pub use super::store::ext::*;
-    pub use super::comm::ext::*;
     pub use super::serial::ext::*;
 }

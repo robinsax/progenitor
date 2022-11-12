@@ -11,7 +11,7 @@ pub enum Type {
     Uint32,
     Float64,
     String,
-    // Note to self: Investigate whether this is the canonical way to do this.
+    // TODO: Investigate whether this is the canonical way to prevent infinite size.
     List(Box<Type>),
     Map(HashMap<String, Type>)
 }
@@ -34,11 +34,56 @@ impl Type {
             rest => mem::discriminant(rest) == mem::discriminant(other)
         }
     }
+
+    // TODO: Strictness options.
+    pub fn validate(&self, value: &Value) -> Result<(), SchemaError> {
+        let value_t = value.try_into()?;
+        
+        match self {
+            Self::List(inner_t) => {
+                match value {
+                    Value::List(value_members) => {
+                        for member in value_members.iter() {
+                            inner_t.validate(member)?;
+                        }
+
+                        Ok(())
+                    },
+                    _ => Err(SchemaError::InvalidType(self.clone(), value_t))
+                }
+            },
+            Self::Map(inner_ts) => {
+                match value {
+                    Value::Map(value_members) => {
+                        for (key, inner_t) in inner_ts.iter() {
+                            let member = match value_members.get(key) {
+                                Some(member) => member,
+                                None => return Err(SchemaError::MissingKey(key.clone()))
+                            };
+
+                            inner_t.validate(member)?;
+                        }
+
+                        Ok(())
+                    },
+                    _ => Err(SchemaError::InvalidType(self.clone(), value_t))
+                }
+            },
+            _ => {
+                if self.primitive_eq(&value_t) {
+                    Ok(())
+                }
+                else {
+                    Err(SchemaError::InvalidType(self.clone(), value_t))
+                }
+            }
+        }
+    }
 }
 
 // Indirectly represented data, with (some) type encapsulation.
 // TODO: More variants.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),

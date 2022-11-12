@@ -1,301 +1,506 @@
 use std::collections::HashMap;
-use std::string::FromUtf8Error;
-
-// TODO: Temporary dependency. This entire module is a placeholder.
-use serde_json as serde;
+use std::str::Chars;
 
 use crate::schema::Value;
 
 use super::errors::SerialError;
 use super::value::SerialValue;
-use super::format::{SerialFormat, SerialReader, SerialWriter};
+use super::format::SerialFormat;
 
-impl From<serde::Error> for SerialError {
-    fn from(err: serde::Error) -> Self {
-        SerialError::DataFormat(format!("<(todo)serde_err: {:?}>", err))
-    }
+struct JsonParser<'ps> {
+    position: u32,
+    input: Chars<'ps>,
+    peeked: Option<Option<char>>
 }
 
-impl From<FromUtf8Error> for SerialError {
-    fn from(err: FromUtf8Error) -> Self {
-        SerialError::DataFormat(format!("<uf8_err: {:?}>", err))
-    }
-}
-
-impl From<&serde::Value> for Value {
-    fn from(serde_value: &serde::Value) -> Self {
-        serde_value.clone().into()
-    }
-}
-
-impl From<serde::Value> for Value {
-    fn from(serde_value: serde::Value) -> Self {
-        match serde_value {
-            serde::Value::Null => Self::Null,
-            serde::Value::Bool(value) => Self::Bool(value),
-            serde::Value::String(value) => Self::String(value),
-            serde::Value::Number(value) => { // TODO inner unwraps safe outers arnt
-                if value.is_f64() {
-                    Self::Float64(value.as_f64().unwrap())
-                }
-                else if value.is_i64() {
-                    Self::Int32(i32::try_from(value.as_i64().unwrap()).unwrap())
-                }
-                else {
-                    Self::Uint32(u32::try_from(value.as_u64().unwrap()).unwrap())
-                }
-            },
-            serde::Value::Array(value) => {
-                Self::List(value.iter().map(|e| e.into()).collect())
-            },
-            serde::Value::Object(value) => {
-                let mut indirect: HashMap<String, Self> = HashMap::new();
-
-                for (key, element) in value {
-                    indirect.insert(key, element.into());
-                }
-
-                Self::Map(indirect)
-            }
+// TODO: Null.
+// TODO: Malicious input protection.
+// All parse methods assume the invariant that the first token they're going to consume
+// is valid for the given to-be-parsed type.
+impl<'ps> JsonParser<'ps> {
+    fn new(input: &'ps str) -> Self {
+        Self {
+            input: input.chars(),
+            position: 0,
+            peeked: None
         }
     }
-}
 
-impl From<&Value> for serde::Value {
-    fn from(indirect_value: &Value) -> Self {
-        indirect_value.clone().into()
+    fn error(&self, message: &'static str) -> SerialError {
+        SerialError::Parse(format!("Syntax error at position {}: {}", self.position, message).into())
     }
-}
 
-impl From<Value> for serde::Value {
-    fn from(indirect_value: Value) -> Self {
-        match indirect_value {
-            Value::Null => Self::Null,
-            Value::Bool(value) => Self::Bool(value),
-            Value::String(value) => Self::String(value),
-            Value::Int32(value) => Self::Number(value.into()),
-            Value::Uint32(value) => Self::Number(value.into()),
-            Value::Float64(value) => {
-                Self::Number(serde::Number::from_f64(value).unwrap()) // TODO !
-            },
-            Value::List(value) => {
-                Self::Array(value.iter().map(|e| e.into()).collect())
-            },
-            Value::Map(value) => {
-                let mut indirect: serde::Map<String, Self> = serde::Map::new();
+    fn raw_consume(&mut self, incl_ws: bool) -> Option<char> {
+        loop {
+            self.position += 1;
 
-                for (key, element) in value {
-                    indirect.insert(key, element.into());
-                }
-
-                Self::Object(indirect.into())
-            }
+            match self.input.next() {
+                Some(token) => {
+                    if incl_ws || (token != ' ' && token != '\n' && token != '\r') {
+                        return Some(token);
+                    }
+                },
+                None => return None
+            };
         }
     }
-}
 
-pub struct JsonSerialWriter {
-    value: Option<SerialValue>,
-}
+    fn peek_optional(&mut self) -> Option<char> {
+        if self.peeked.is_none() {
+            self.peeked = Some(self.raw_consume(false));
+        }
 
-impl From<JsonSerialWriter> for SerialValue {
-    fn from(json: JsonSerialWriter) -> Self {
-        if let Some(value) = json.value {
-            value
+        self.peeked.unwrap()
+    }
+
+    fn peek(&mut self) -> Result<char, SerialError> {
+        self.peek_optional().ok_or_else(|| self.error("Unterminated value"))
+    }
+
+    fn next_optional(&mut self) -> Option<char> {
+        if let Some(next) = self.peeked {
+            self.peeked = None;
+
+            next
         }
         else {
-            SerialValue::empty()
+            self.raw_consume(false)
         }
     }
-}
 
-impl TryFrom<Value> for JsonSerialWriter {
-    type Error = SerialError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        use bytes::Bytes;
-
-        let serde_value: serde::Value = value.clone().into();
-
-        let bytes: Bytes = serde::to_string(&serde_value)?.into();
-
-        Ok(Self { value: Some(bytes.into()) })
-    }
-}
-
-impl SerialWriter for JsonSerialWriter {
-    fn write(&mut self, indirect: Value) -> Result<(), SerialError> {
-        use bytes::Bytes;
-
-        let serde_value: serde::Value = indirect.clone().into();
-
-        let bytes: Bytes = serde::to_string(&serde_value)?.into();
-
-        self.value = Some(bytes.into());
-
-        Ok(())
+    fn next(&mut self) -> Result<char, SerialError> {
+        self.next_optional().ok_or_else(|| self.error("Unterminated value"))
     }
 
-    fn flush(self) -> Result<SerialValue, SerialError> {
-        Ok(if let Some(serial) = self.value {
-            serial
+    fn raw_parse_string(&mut self) -> Result<String, SerialError> {
+        let mut is_escape = false;
+        // TODO: Adaptive capacity.
+        let mut parsed = String::with_capacity(32);
+
+        self.next()?;
+
+        loop {
+            // Careful, peeking above here will break things.
+            let token = self.raw_consume(true).ok_or_else(|| self.error("Unterminated string"))?;
+
+            if token == '"' && !is_escape {
+                break;
+            }
+
+            if token == '\\' {
+                is_escape = !is_escape;
+            }
+
+            parsed.push(token);
+        }
+
+        Ok(parsed)
+    }
+
+    fn parse_number(&mut self) -> Result<Value, SerialError> {
+        let mut whole = 0;
+        let mut negative = false;
+        let mut fractional_digits = 0;
+        let mut fractional = None;
+
+        let first_token = self.peek()?;
+        if first_token == '-' {
+            negative = true;
+
+            self.next()?;
+        }
+
+        loop {
+            let token = self.next()?;
+
+            if token == '.' {
+                if fractional.is_some() {
+                    return Err(self.error("Repeat decimal token"));
+                }
+
+                fractional = Some(0);
+                continue;
+            }
+
+            let part = token.to_digit(10)
+                .ok_or_else(|| self.error("Invalid token for number"))?;
+
+            if let Some(current) = fractional {
+                fractional = Some((current * 10) + part);
+                fractional_digits += 1;
+            }
+            else {
+                whole = (whole * 10) + part;
+            }
+
+            let maybe_next_token = self.peek_optional();
+            if let Some(next_token) = maybe_next_token {
+                if next_token != '.' && !next_token.is_numeric() {
+                    break;
+                }
+            }
+            else {
+                break;
+            }
+        }
+
+        // Return value resolved as:
+        // Float64 if it has a fraction part,
+        // Int32 if it is explicitly signed (negative),
+        // Uint32 otherwise.
+
+        if let Some(frac) = fractional {
+            let mut real = whole as f64 + ((frac as f64) / ((10_i32.pow(fractional_digits)) as f64));
+            if negative {
+                real *= -1.0;
+            }
+
+            Ok(Value::Float64(real))
+        }
+        else if negative {
+            match i32::try_from(whole) {
+                Ok(signed) => Ok(Value::Int32(signed * -1)),
+                Err(_) => Err(self.error("Numeric overflow"))
+            }
         }
         else {
-            SerialValue::empty()
-        })
+            Ok(Value::Uint32(whole))
+        }
+    }
+
+    fn parse_string(&mut self) -> Result<Value, SerialError> {
+        Ok(Value::String(self.raw_parse_string()?))
+    }
+
+    fn parse_object(&mut self) -> Result<Value, SerialError> {
+        // TODO: Adaptive capacity.
+        let mut result = HashMap::with_capacity(8);
+
+        self.next()?;
+
+        loop {
+            let token = self.peek()?;
+
+            if token == '}' {
+                self.next()?;
+                break;
+            }
+
+            let key = self.raw_parse_string()?;
+
+            if self.next()? != ':' {
+                return Err(self.error("Object key without trailing :"))                
+            }
+
+            let value = self.parse()?;
+
+            result.insert(key, value);
+
+            let next_token = self.peek()?;
+            if next_token == ',' {
+                self.next()?;
+            }
+            else if next_token != '}' {
+                return Err(self.error("Invalid token after object value position"));
+            }
+        }
+
+        Ok(Value::Map(result))
+    }
+
+    fn parse_array(&mut self) -> Result<Value, SerialError> {
+        // TODO: Adaptive capacity.
+        let mut result = Vec::with_capacity(8);
+
+        self.next()?;
+
+        loop {
+            let token = self.peek()?;
+
+            if token == ']' {
+                self.next()?;
+                break;
+            }
+
+            result.push(self.parse()?);
+            
+            let next_token = self.peek()?;
+            if next_token == ',' {
+                self.next()?;
+            }
+            else if next_token != ']' {
+                return Err(self.error("Invalid token after array element position"));
+            }
+        }
+
+        Ok(Value::List(result))
+    }
+
+    fn parse(&mut self) -> Result<Value, SerialError> {
+        let next_token = self.peek()?;
+
+        if next_token == '-' || next_token.is_numeric() {
+            return self.parse_number();
+        }
+
+        match next_token {
+            '{' => self.parse_object(),
+            '[' => self.parse_array(),
+            '"' => self.parse_string(),
+            _ => Err(self.error("Invalid token in value position"))
+        }
     }
 }
 
-pub struct JsonSerialReader {
-    // Preserve Result to fail on read; a further hack to target eventual semantics.
-    value: Result<Value, SerialError>
+struct JsonWriter<'wr> {
+    output: String,
+    input: &'wr Value
 }
 
-impl From<SerialValue> for JsonSerialReader {
-    fn from(value: SerialValue) -> Self {
-        Self { value: Self::try_parse_eager(value) }
+// TODO: Formatting.
+impl<'wr> JsonWriter<'wr> {
+    fn new(input: &'wr Value) -> Self {
+        Self {
+            input,
+            // TODO: Intelligent capacity. sizeof?
+            output: String::with_capacity(128)
+        }
     }
-}
 
-impl TryFrom<JsonSerialReader> for Value {
-    type Error = SerialError;
-
-    fn try_from(json: JsonSerialReader) -> Result<Self, Self::Error> {
-        json.value
+    fn raw_append(&mut self, string: &str) {
+        self.output.push_str(&string)
     }
-}
 
-impl JsonSerialReader {
-    fn try_parse_eager(value: SerialValue) -> Result<Value, SerialError> {
-        let input_str = match value {
-            SerialValue::Buffer(data) => {
-                String::from_utf8(data.into())?
-            },
-            _ => return Err(SerialError::DataFormat("Only buffers supported yet".into()))
+    fn append_string(&mut self, string: &str) {
+        self.raw_append("\"");
+
+        let mut did_escape = false;
+        for token in string.chars() {
+            // TODO: Pretty sure it's more complex than this.
+            if token == '"' {
+                self.output.push('\\');
+            }
+
+            self.output.push(token);
+
+            did_escape = token == '\\';
+        }
+
+        if did_escape {
+            self.raw_append("\\");
+        }
+        self.raw_append("\"");
+    }
+
+    fn append_object(&mut self, contents: &HashMap<String, Value>) {
+        self.raw_append("{");
+
+        let mut keys = contents.keys().collect::<Vec<&String>>();
+        keys.sort();
+
+        let max = contents.len() - 1;
+        let mut idx = 0;
+        for key in keys {
+            let value = contents.get(key).unwrap();
+
+            self.append_string(key);
+            self.raw_append(":");
+            self.append_value(value);
+
+            if idx != max {
+                self.raw_append(",");
+            }
+            idx += 1;
+        }
+
+        self.raw_append("}");
+    }
+
+    fn append_array(&mut self, contents: &Vec<Value>) {
+        self.raw_append("[");
+
+        let mut idx = 0;
+        for value in contents.iter() {
+            self.append_value(value);
+
+            if idx != contents.len() - 1 {
+                self.raw_append(",");
+            }
+            idx += 1;
+        }
+
+        self.raw_append("]");
+    }
+
+    fn append_value(&mut self, value: &Value) {
+        match value {
+            Value::Null => self.raw_append("null"),
+            // TODO: What's faster than format!?
+            Value::Bool(flag) => self.raw_append(&format!("{}", flag)),
+            Value::Uint32(num) => self.raw_append(&format!("{}", num)),
+            Value::Int32(num) => self.raw_append(&format!("{}", num)),
+            Value::Float64(num) => self.raw_append(&format!("{}", num)),
+            Value::String(string) => self.append_string(string),
+            Value::Map(contents) => self.append_object(contents),
+            Value::List(contents) => self.append_array(contents)
         };
-
-        let serde_value = serde::from_str::<serde::Value>(&input_str)?;
-
-        Ok(serde_value.into())
-    }
-}
-
-impl SerialReader for JsonSerialReader {
-    fn lookup(&self, key: &str) -> Result<Self, SerialError> {
-        Ok(Self { value: Ok(self.value.clone()?.lookup(key)?) })
     }
 
-    fn elements(&self) -> Result<Vec<Self>, SerialError> {
-        match &self.value.clone()? {
-            Value::List(value) => {
-                let mut format_wraps = Vec::new();
+    fn write(mut self) -> Result<String, SerialError> {
+        self.append_value(self.input);
 
-                for element in value {
-                    format_wraps.push(Self { value: Ok(element.clone()) });
-                }
-
-                Ok(format_wraps)
-            },
-            _ => Err(SerialError::DataContent("elements() on non-list data".into()))
-        }
+        Ok(self.output)
     }
 }
 
 pub struct JsonSerial;
 
 impl SerialFormat for JsonSerial {
-    type Reader = JsonSerialReader;
-    type Writer = JsonSerialWriter;
+    fn parse(serial: SerialValue) -> Result<Value, SerialError> {
+        let string = match String::from_utf8(serial.try_into_bytes()?.into()) {
+            Ok(string) => string,
+            Err(_) => return Err(SerialError::Parse("Invalid JSON string encoding".into()))
+        };
 
-    fn new_reader(value: SerialValue) -> Self::Reader {
-        value.into()
+        JsonParser::new(&string).parse()
     }
 
-    fn new_writer() -> Self::Writer {
-        Self::Writer { value: Some(SerialValue::new_write_buffer()) }
+    fn write(value: &Value) -> Result<SerialValue, SerialError> {
+        let string = JsonWriter::new(value).write()?;
+
+        Ok(SerialValue::from_string(string))
     }
 }
 
+// TODO: Parse fail successfully tests.
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::conversion::{StreamSerial, DirectSerial, elements_auto, lookup_auto};
-    use crate::schema::Type;
 
-    #[derive(Clone)]
-    pub struct Foo {
-        a: String,
-        b: i32,
-        c: bool,
-        d: Vec<u32>
-    }
-
-    impl StreamSerial for Foo {
-        fn schema() -> Type {
-            let mut fields = HashMap::new();
-
-            fields.insert("a".into(), Type::String);
-            fields.insert("b".into(), Type::Int32);
-            fields.insert("c".into(), Type::Bool);
-            fields.insert("d".into(), Type::List(Box::new(Type::Uint32)));
-
-            Type::Map(fields)
-        }
-
-        fn stream_deserialize(serial: &mut impl SerialReader) -> Result<Self, SerialError> {
-            let elements = serial.lookup("d")?;
-            let d = elements_auto!(elements);
-
-            Ok(Self {
-                a: lookup_auto!(serial, "a"),
-                b: lookup_auto!(serial, "b"),
-                c: lookup_auto!(serial, "c"),
-                d
-            })
-        }
-    
-        fn stream_serialize(self, serial: &mut impl SerialWriter) -> Result<(), SerialError> {
-            let mut fields = HashMap::new();
-
-            let src = self.clone();
-
-            fields.insert("a".into(), src.a.try_into()?);
-            fields.insert("b".into(), src.b.try_into()?);
-            fields.insert("c".into(), src.c.try_into()?);
-
-            let mut d = Vec::new();
-            for element in src.d {
-                d.push(element.try_into()?);
-            }
-
-            fields.insert("d".into(), Value::List(d));
-
-            serial.write(Value::Map(fields))
-        }
-    }
-    
-    // TODO
     #[test]
-    fn serial_roundtrip() {
-        let mut f = Foo {
-            a: "a".into(),
-            b: 12,
-            c: true,
-            d: Vec::new()
-        };
+    fn parse_number() {
+        assert_eq!(
+            JsonParser::new("1.145").parse(),
+            Ok(Value::Float64(1.145))
+        );
+    }
 
-        f.d.push(23);
+    #[test]
+    fn parse_string() {
+        assert_eq!(
+            JsonParser::new("\"foo bar\"").parse(),
+            Ok(Value::String("foo bar".into()))
+        );
+    }
 
-        let serial = f.clone().serialize::<JsonSerial>().expect("json write failed");
-        let raw_data = serial.try_clone_buffer().expect("Buffer extraction").try_into_bytes().expect("Bytes unwrap");
+    #[test]
+    fn parse_array() {
+        assert_eq!(
+            JsonParser::new("[1, 2, 3]").parse(),
+            Ok(Value::List(Vec::from([
+                Value::Uint32(1),
+                Value::Uint32(2),
+                Value::Uint32(3)
+            ])))
+        );
 
-        assert_eq!(String::from_utf8(raw_data.into()).expect("serialized value valid"), "{\"a\":\"a\",\"b\":12,\"c\":true,\"d\":[23]}");
+        assert_eq!(
+            JsonParser::new("[\"foo\", \"bar\"]").parse(),
+            Ok(Value::List(Vec::from([
+                Value::String("foo".into()),
+                Value::String("bar".into())
+            ])))
+        );
+    }
 
-        let g = Foo::deserialize::<JsonSerial>(serial).expect("Json read failed");
+    #[test]
+    fn parse_object() {
+        assert_eq!(
+            JsonParser::new("{\"a\": 1, \"b\": \"foo\"}").parse(),
+            Ok(Value::Map(HashMap::from([
+                ("a".to_owned(), Value::Uint32(1)),
+                ("b".to_owned(), Value::String("foo".into()))
+            ])))
+        );
+    }
 
-        assert_eq!(f.a, g.a);
-        assert_eq!(f.b, g.b);
-        assert_eq!(f.c, g.c);
-        assert_eq!(f.d, g.d);
+    #[test]
+    fn parse_complex() {
+        assert_eq!(
+            JsonParser::new("{\"foo\": [1, -2, -1.5, \"bar\"]}").parse(),
+            Ok(Value::Map(HashMap::from([
+                ("foo".to_owned(), Value::List(Vec::from([
+                    Value::Uint32(1),
+                    Value::Int32(-2),
+                    Value::Float64(-1.5),
+                    Value::String("bar".into())
+                ])))
+            ])))
+        );
+    }
+
+    #[test]
+    fn write_null() {
+        assert_eq!(
+            JsonWriter::new(&Value::Null).write(),
+            Ok("null".into())
+        );
+    }
+
+    #[test]
+    fn write_number() {
+        assert_eq!(
+            JsonWriter::new(&Value::Uint32(4)).write(),
+            Ok("4".into())
+        );
+
+        assert_eq!(
+            JsonWriter::new(&Value::Int32(-4)).write(),
+            Ok("-4".into())
+        );
+
+        assert_eq!(
+            JsonWriter::new(&Value::Float64(-4.2)).write(),
+            Ok("-4.2".into())
+        );
+    }
+
+    #[test]
+    fn write_string() {
+        assert_eq!(
+            JsonWriter::new(&Value::String("foo \"bar\"".into())).write(),
+            Ok("\"foo \\\"bar\\\"\"".into())
+        );
+
+        assert_eq!(
+            JsonWriter::new(&Value::String("foo \"bar\"\\".into())).write(),
+            Ok("\"foo \\\"bar\\\"\\\\\"".into())
+        );
+    }
+
+    #[test]
+    fn write_array() {
+        assert_eq!(
+            JsonWriter::new(&Value::List(Vec::from([
+                Value::String("foo".into()),
+                Value::Float64(-2.2),
+                Value::Null
+            ]))).write(),
+            Ok("[\"foo\",-2.2,null]".into())
+        );
+    }
+
+    #[test]
+    fn write_object() {
+        assert_eq!(
+            JsonWriter::new(&Value::Map(HashMap::from([
+                ("foo".into(), Value::String("bar".into())),
+                ("a".into(), Value::List(Vec::from([
+                    Value::Null,
+                    Value::Int32(-5)
+                ])))
+            ]))).write(),
+            Ok("{\"a\":[null,-5],\"foo\":\"bar\"}".into())
+        );
     }
 }

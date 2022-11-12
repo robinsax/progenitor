@@ -1,16 +1,15 @@
-use crate::schema::SchemaError;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SerialError {
-    Schema(SchemaError),
-    // TODO: Real diagnostic information, not strings.
-    DataFormat(String),
-    DataContent(String),
-    NotImplemented(String)
+    Parse(String)
 }
 
-impl From<SchemaError> for SerialError {
-    fn from(err: SchemaError) -> Self {
-        Self::Schema(err)
+impl Display for SerialError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "serial error: {:?}",self)
     }
 }
+
+impl Error for SerialError {}

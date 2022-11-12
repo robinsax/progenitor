@@ -1,4 +1,4 @@
-use crate::serial::SerialValue;
+use progenitor::SerialValue;
 
 #[derive(Clone)]
 pub struct Route {
@@ -10,7 +10,7 @@ impl Route {
         Self { path }
     }
 
-    pub fn path_ref(&self) -> &str {
+    pub fn path(&self) -> &str {
         &self.path
     }
 }
@@ -31,11 +31,11 @@ impl Request {
         Self { route, payload }
     }
 
-    pub fn payload_ref(&self) -> &SerialValue {
+    pub fn payload(&self) -> &SerialValue {
         &self.payload
     }
 
-    pub fn route_ref(&self) -> &Route {
+    pub fn route(&self) -> &Route {
         &self.route
     }
 }
@@ -44,10 +44,16 @@ pub struct Response {
     payload: SerialValue
 }
 
-// TODO: Remove. Hack for State.take().
+// TODO: No.
 impl Clone for Response {
     fn clone(&self) -> Self {
-        Self { payload: self.payload.try_clone_buffer().unwrap() }
+        let payload = match &self.payload {
+            SerialValue::Buffer(bytes) => SerialValue::Buffer(bytes.clone())
+        };
+
+        Self {
+            payload
+        }
     }
 }
 
