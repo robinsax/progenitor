@@ -10,28 +10,28 @@ use super::errors::EffectError;
 //  async fn effect<'ef>(&'ef State) -> Result<(), EffectError> 
 //
 //  to this type.
-pub type EffectFn = fn(&Context) -> Pin<Box<dyn Future<Output = Result<(), EffectError>> + '_>>;
+pub type EffectFn = fn(&mut Context) -> Pin<Box<dyn Future<Output = Result<(), EffectError>>>>;
 
 #[macro_export]
 macro_rules! effect_fn {
     (
         $( #[$m: meta] )*
-        $v: vis async fn $n: ident<$lt: lifetime>( $($a: tt)* ) $(-> $rv: ty)?
+        $v: vis async fn $n: ident<$lt: lifetime>( $($a: tt)* ) -> $rv: ty
         {
             $($body: tt)*
         }
     ) => (
         $( #[$m] )*
         $v fn $n<$lt>( $($a)* ) -> 
-            ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = $($rv)?> + $lt>>
+            ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = $rv> + $lt>>
         {
-            $crate::log::debug!("exec effect") // TODO: Demonstrating we need more context here.
             ::std::boxed::Box::pin(async move { $($body)* })
         }
     )
 }
 pub use effect_fn;
 
+/*
 // Macro for an effect function that is a sequence of effects:
 //
 //  make_flow_effect_fn(my_sequence_effect, vec!["step_1", "step_2"])
@@ -51,3 +51,4 @@ macro_rules! make_flow_effect_fn {
     };
 }
 pub use make_flow_effect_fn;
+*/

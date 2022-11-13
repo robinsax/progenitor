@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::SchemaError;
-use crate::init::InitError;
+use crate::errors::InitError;
 use crate::serial::SerialError;
 use crate::store::StoreError;
 use crate::state::StateError;

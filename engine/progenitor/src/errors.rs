@@ -15,14 +15,3 @@ impl Display for InitError {
 }
 
 impl Error for InitError {}
-
-pub trait InitConfig {
-    fn read(&self, key: &str) -> Result<String, InitError>;
-}
-
-pub trait ConfigInit
-where
-    Self: Sized
-{
-    fn from_config(config: &Box<dyn InitConfig>) -> Result<Self, InitError>;
-}

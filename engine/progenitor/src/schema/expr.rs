@@ -15,6 +15,18 @@ pub enum Comparator {
 
 // TODO: Currently evaluates as false when comparisons are actually impossible...
 impl Comparator {
+    pub fn parse_from_value(value: Value) -> Result<Self, SchemaError> {
+        let which: String = value.try_into()?;
+
+        match which.as_str() {
+            "eq" => Ok(Self::Eq),
+            "neq" => Ok(Self::Neq),
+            "lt" => Ok(Self::Lt),
+            "gt" => Ok(Self::Gt),
+            _ => Err(SchemaError::NotImplemented("invalid comparator".into()))
+        }
+    }
+
     fn compare_eq<T>(&self, a: T, b: T) -> bool
     where
         T: Eq
@@ -81,6 +93,18 @@ pub enum Conjunctive {
     Or
 }
 
+impl Conjunctive {
+    pub fn parse_from_value(value: Value) -> Result<Self, SchemaError> {
+        let which: String = value.try_into()?;
+
+        match which.as_str() {
+            "and" => Ok(Self::And),
+            "or" => Ok(Self::Or),
+            _ => Err(SchemaError::NotImplemented("invalid conjunctive".into()))
+        }
+    }
+}
+
 // An evaluatable indirect expression.
 #[derive(Debug)]
 pub enum Expression {
@@ -89,6 +113,34 @@ pub enum Expression {
 }
 
 impl Expression {
+    // TODO: Bad schema.
+    pub fn parse_from_value(value: Value) -> Result<Self, SchemaError> {
+        if let Ok(cmp_value) = value.lookup("compare") {
+            Ok(Self::Comparison(
+                Comparator::parse_from_value(cmp_value.index(0)?)?,
+                ValueReference::parse_from_value(cmp_value.index(1)?)?,
+                ValueReference::parse_from_value(cmp_value.index(2)?)?
+            ))
+        }
+        else if let Ok(conj_value) = value.lookup("many") {
+            let elements_value = conj_value.index(1)?;
+            let elements = elements_value.elements()?;
+
+            let mut exprs = Vec::with_capacity(elements.len());
+            for element in elements {
+                exprs.push(Expression::parse_from_value(element.clone())?);
+            }
+
+            Ok(Self::Conjunctive(
+                Conjunctive::parse_from_value(conj_value.index(0)?)?,
+                exprs
+            ))
+        }
+        else {
+            Err(SchemaError::NotImplemented("invalid expression".into()))
+        }
+    }
+
     pub fn validate(&self, typ: &Type) -> Result<(), SchemaError> {
         match self {
             Self::Comparison(op, a, b) => {
@@ -155,6 +207,18 @@ impl From<Value> for ValueReference {
 }
 
 impl ValueReference {
+    pub fn parse_from_value(value: Value) -> Result<Self, SchemaError> {
+        if let Ok(literal) = value.lookup("value") {
+            Ok(Self::Value(literal))
+        }
+        else if let Ok(ref_str) = value.lookup("ref") {
+            Ok(Self::Reference(ref_str.try_into()?))
+        }
+        else {
+            Err(SchemaError::NotImplemented("invalid value reference".into()))
+        }
+    }
+
     pub fn lookup_type(&self, typ: &Type) -> Result<Type, SchemaError> {
         match self {
             Self::Value(value) => value.try_into(),

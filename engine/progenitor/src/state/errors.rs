@@ -4,8 +4,7 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, Clone, PartialEq)]
 pub enum StateError {
     Empty(String),
-    InvalidType(String),
-    Poisoned
+    InvalidType(String)
 }
 
 impl Display for StateError {

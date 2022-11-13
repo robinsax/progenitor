@@ -1,6 +1,10 @@
+// Effects each get their own Context, which contains a reference to the appropriate
+// State for the effect, which has interior mutability.
 mod errors;
 mod effect;
 mod context;
+mod primitives;
 
-pub use errors::EffectError;
-pub use effect::EffectFn;
+pub use self::errors::EffectError;
+pub use self::effect::EffectFn;
+pub use self::context::Context;
