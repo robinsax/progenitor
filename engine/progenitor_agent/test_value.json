@@ -1,0 +1,9 @@
+{
+    "archetype": "value",
+    "value": {
+        "from": "read_state",
+        "params": {
+            "to_state": "store_write"
+        }
+    }
+}

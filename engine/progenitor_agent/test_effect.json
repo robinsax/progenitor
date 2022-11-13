@@ -1,23 +1,10 @@
 {
     "archetype": "effect",
-    "name": "foo",
+    "name": "store_read_foo",
     "value": {
-        "steps": [
-            [
-                "read_state",
-                {
-                    "type": ["progenitor", "Request"],
-                    "name": "req"
-                }
-            ],
-            [
-                "write_state",
-                { "name": "req" }
-            ],
-            [
-                "invoke_effect",
-                { "effect": ["guh_mod", "guh"] }
-            ]
-        ]
+        "from": ["progenitor", "store_read"],
+        "params": {
+            "to_state": "store_write"
+        }
     }
 }

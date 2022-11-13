@@ -3,6 +3,8 @@ use progenitor::{Type, Value};
 use super::super::errors::ExecError;
 use super::scribe::Scribe;
 
+// TODO: Rework to "type", and also not return a function.
+
 // TODO: Dumb setup with the rv.
 fn author_schema_elem(mut scribe: Scribe, typ: &Type) -> Scribe {
     match typ {

@@ -1,6 +1,7 @@
 mod cli;
 mod errors;
 mod author;
+mod port;
 
 use std::process;
 use std::io::{Read, Write, stdin, stdout};
@@ -11,11 +12,10 @@ use bytes::Bytes;
 use progenitor::{SerialValue, SerialFormat};
 use progenitor::ext::JsonSerial;
 
-use crate::author::AuthorInput;
-
 use self::errors::ExecError;
 use self::cli::{CLIArgs, CLITemplate, CLIVerbTemplate, CLIOptionTemplate};
-use self::author::author;
+use self::author::{author, AuthorInput};
+use self::port::{port, PortInput, PortOperation};
 
 fn cli_template() -> CLITemplate {
     CLITemplate { verbs: vec![
@@ -25,7 +25,7 @@ fn cli_template() -> CLITemplate {
             description: "show usage"
         },
         CLIVerbTemplate {
-            verb: "author".into(),
+            verb: "author",
             options: vec![
                 CLIOptionTemplate {
                     key: "in",
@@ -53,6 +53,30 @@ fn cli_template() -> CLITemplate {
                 }
             ],
             description: "author .rs from an archetype definition"
+        },
+        CLIVerbTemplate {
+            verb: "port",
+            options: vec![
+                CLIOptionTemplate {
+                    key: "op",
+                    key_shorthand: None,
+                    takes_value: true,
+                    description: "operation to perform"
+                },
+                CLIOptionTemplate {
+                    key: "target",
+                    key_shorthand: Some("t"),
+                    takes_value: true,
+                    description: "target directory"
+                },
+                CLIOptionTemplate {
+                    key: "name",
+                    key_shorthand: Some("n"),
+                    takes_value: true,
+                    description: "project name"
+                }
+            ],
+            description: "manage cargo repository"
         }
     ] }
 }
@@ -133,7 +157,7 @@ fn main() {
             let input_serial: SerialValue = SerialValue::Buffer(input);
     
             let input_value = match input_format_str.as_str() {
-                "json" => handle_result!(JsonSerial::parse(input_serial)),
+                "json" => handle_result!(JsonSerial::new().parse(input_serial)),
                 _ => { error_exit!("unsupported format {}", input_format_str); }
             };
 
@@ -143,6 +167,20 @@ fn main() {
             }));
 
             handle_result!(write_output(output_dest, output));
+        },
+        "port" => {
+            let op = match get_required_option!("op", "no operation specified").as_str() {
+                "create" => PortOperation::Create {
+                    name: get_required_option!("name", "no name specified").to_owned()
+                },
+                _ => { error_exit!("invalid operation"); }
+            };
+            let target = get_required_option!("target", "no target directory specified").to_owned();
+
+            handle_result!(port(PortInput {
+                op,
+                target
+            }));
         },
         _ => { error_exit!("invalid verb"); }
     }
