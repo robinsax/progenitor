@@ -23,6 +23,10 @@ impl From<EffectError> for CommError {
 
 impl Display for CommError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<comm error: {:?}>", self)
+        match self {
+            Self::Init(err) => write!(f, "initialization failed: {}", err),
+            Self::Effect(err) => write!(f, "effect failed: {}", err),
+            Self::Interface(message) => write!(f, "interface error: {}", message)
+        }
     }
 }

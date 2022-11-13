@@ -8,3 +8,4 @@ mod primitives;
 pub use self::errors::EffectError;
 pub use self::effect::EffectFn;
 pub use self::context::Context;
+pub use self::primitives::{store_read, store_write, open_store};

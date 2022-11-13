@@ -10,11 +10,11 @@ use crate::state::StateError;
 #[derive(Debug)]
 pub enum EffectError {
     Missing(String),
-    Duplicate(String),
     State(StateError),
     Serial(SerialError),
     Store(StoreError),
     Schema(SchemaError),
+    Stack(String, Box<EffectError>),
     Internal(String)
 }
 
@@ -51,7 +51,15 @@ impl From<InitError> for EffectError {
 
 impl Display for EffectError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "effect error: {:?}", self)
+        match self {
+            Self::Missing(name) => write!(f, "effect was expected to exist but doesn't: {}", name),
+            Self::State(err) => write!(f, "state invalidated: {}", err),
+            Self::Serial(err) => write!(f, "serialization error: {}", err),
+            Self::Store(err) => write!(f, "persistence layer error: {}", err),
+            Self::Schema(err) => write!(f, "invalid schema: {}", err),
+            Self::Stack(name, inner) => write!(f, "{}/ {}", name, inner),
+            Self::Internal(message) => write!(f, "internal: {}", message)
+        }
     }
 }
 

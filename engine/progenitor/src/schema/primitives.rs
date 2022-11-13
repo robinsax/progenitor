@@ -91,12 +91,20 @@ pub enum Value {
     Int32(i32),
     Uint32(u32),
     Float64(f64),
-    String(String),
+    Str(String),
     List(Vec<Value>),
     Map(HashMap<String, Value>)
 }
 
 impl Value {
+    pub fn str_from(src: impl Into<String>) -> Self {
+        Self::Str(src.into())
+    }
+
+    pub fn map_from(src: impl Into<HashMap<String, Value>>) -> Self {
+        Self::Map(src.into())
+    }
+
     pub fn lookup(&self, key: &str) -> Result<Value, SchemaError> {
         if let Self::Map(inner) = self {
             if let Some(value) = inner.get(key) {
@@ -148,7 +156,7 @@ impl TryFrom<Value> for Type {
             Value::Int32(_) => Self::Int32,
             Value::Uint32(_) => Self::Uint32,
             Value::Float64(_) => Self::Float64,
-            Value::String(_) => Self::String,
+            Value::Str(_) => Self::String,
             Value::List(members) => {
                 if members.len() == 0 {
                     return Err(Self::Error::UnknownableType);
@@ -223,7 +231,7 @@ macro_rules! primitive_to_indirect_implementation {
 primitive_from_indirect_implementation!(Value::Bool, bool);
 primitive_from_indirect_implementation!(Value::Int32, i32);
 primitive_from_indirect_implementation!(Value::Float64, f64);
-primitive_from_indirect_implementation!(Value::String, String);
+primitive_from_indirect_implementation!(Value::Str, String);
 
 impl TryFrom<Value> for u32 {
     type Error = SchemaError;
@@ -257,4 +265,4 @@ primitive_to_indirect_implementation!(Value::Bool, bool);
 primitive_to_indirect_implementation!(Value::Int32, i32);
 primitive_to_indirect_implementation!(Value::Uint32, u32);
 primitive_to_indirect_implementation!(Value::Float64, f64);
-primitive_to_indirect_implementation!(Value::String, String);
+primitive_to_indirect_implementation!(Value::Str, String);

@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use bytes::Bytes;
 use tokio::net::TcpListener;
@@ -9,7 +10,7 @@ use http_body_util::{Full, BodyExt};
 // TODO: Likely a temporary dependency.
 use hyper::{service::service_fn, server::conn::http1::Builder};
 
-use progenitor::{InitConfig, ConfigInit, InitError, SerialValue};
+use progenitor::{InitError, SerialValue, Registry};
 
 use super::errors::CommError;
 use super::server::Server;
@@ -52,9 +53,9 @@ pub struct Http1Comm {
     socket_addr: SocketAddr
 }
 
-impl ConfigInit for Http1Comm {
-    fn from_config(config: &Box<dyn InitConfig>) -> Result<Self, InitError> {
-        let socket_addr = match config.read("http1_sock".into())?.parse::<SocketAddr>() {
+impl CommDriver for Http1Comm {
+    fn new(registry: Arc<Registry>) -> Result<Self, InitError> {
+        let socket_addr = match registry.get_config("http1_sock")?.parse::<SocketAddr>() {
             Ok(addr) => addr,
             Err(_) => return Err(InitError::Config("invalid socket addr".into()))
         };
@@ -63,9 +64,8 @@ impl ConfigInit for Http1Comm {
             socket_addr
         })
     }
-}
 
-impl CommDriver for Http1Comm {
+    // TODO: Non-thread local (big time investment).
     fn handle_connections(&self, server: Server<Http1Comm>) -> Result<(), CommError> {
         let runtime = match Runtime::new() {
             Ok(runtime) => runtime,

@@ -5,14 +5,18 @@ use std::any::{Any, TypeId};
 use std::sync::Arc;
 use std::collections::HashMap;
 
-use log::debug;
-
 use super::errors::StateError;
 
 #[derive(Clone)]
 pub struct StateCell {
     type_id: TypeId,
     value: Arc<dyn Any + Send + Sync>
+}
+
+impl std::fmt::Debug for StateCell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<cell>")
+    }
 }
 
 impl StateCell {
@@ -27,7 +31,7 @@ impl StateCell {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct State {
     cells: HashMap<String, StateCell>
 }
@@ -44,8 +48,6 @@ impl<'st> State {
         T: Send + Sync + 'static
     {
         let key: String = key_src.into();
-
-        debug!("state.get {}", key);
 
         let cell = match self.cells.get(&key) {
             None => return Err(StateError::Empty(key)),
@@ -69,8 +71,6 @@ impl<'st> State {
         T: Send + Sync + 'static
     {
         let key: String = key_src.into();
-
-        debug!("state.set {}", key);
 
         let cell = StateCell::new(
             TypeId::of::<T>(),

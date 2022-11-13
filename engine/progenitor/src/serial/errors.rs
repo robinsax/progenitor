@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SerialError {
+    Format(String),
     Parse(String)
 }
 

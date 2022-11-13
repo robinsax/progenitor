@@ -169,7 +169,7 @@ impl<'ps> JsonParser<'ps> {
     }
 
     fn parse_string(&mut self) -> Result<Value, SerialError> {
-        Ok(Value::String(self.raw_parse_string()?))
+        Ok(Value::Str(self.raw_parse_string()?))
     }
 
     fn parse_object(&mut self) -> Result<Value, SerialError> {
@@ -340,7 +340,7 @@ impl<'wr> JsonWriter<'wr> {
             Value::Uint32(num) => self.raw_append(&format!("{}", num)),
             Value::Int32(num) => self.raw_append(&format!("{}", num)),
             Value::Float64(num) => self.raw_append(&format!("{}", num)),
-            Value::String(string) => self.append_string(string),
+            Value::Str(string) => self.append_string(string),
             Value::Map(contents) => self.append_object(contents),
             Value::List(contents) => self.append_array(contents)
         };
@@ -356,7 +356,7 @@ impl<'wr> JsonWriter<'wr> {
 pub struct JsonSerial;
 
 impl SerialFormat for JsonSerial {
-    fn parse(serial: SerialValue) -> Result<Value, SerialError> {
+    fn parse(&self, serial: SerialValue) -> Result<Value, SerialError> {
         let string = match String::from_utf8(serial.try_into_bytes()?.into()) {
             Ok(string) => string,
             Err(_) => return Err(SerialError::Parse("Invalid JSON string encoding".into()))
@@ -365,10 +365,16 @@ impl SerialFormat for JsonSerial {
         JsonParser::new(&string).parse()
     }
 
-    fn write(value: &Value) -> Result<SerialValue, SerialError> {
+    fn write(&self, value: &Value) -> Result<SerialValue, SerialError> {
         let string = JsonWriter::new(value).write()?;
 
         Ok(SerialValue::from_string(string))
+    }
+}
+
+impl JsonSerial {
+    pub fn new() -> Self {
+        Self { }
     }
 }
 
@@ -389,7 +395,7 @@ mod tests {
     fn parse_string() {
         assert_eq!(
             JsonParser::new("\"foo bar\"").parse(),
-            Ok(Value::String("foo bar".into()))
+            Ok(Value::Str("foo bar".into()))
         );
     }
 
@@ -407,8 +413,8 @@ mod tests {
         assert_eq!(
             JsonParser::new("[\"foo\", \"bar\"]").parse(),
             Ok(Value::List(Vec::from([
-                Value::String("foo".into()),
-                Value::String("bar".into())
+                Value::Str("foo".into()),
+                Value::Str("bar".into())
             ])))
         );
     }
@@ -419,7 +425,7 @@ mod tests {
             JsonParser::new("{\"a\": 1, \"b\": \"foo\"}").parse(),
             Ok(Value::Map(HashMap::from([
                 ("a".to_owned(), Value::Uint32(1)),
-                ("b".to_owned(), Value::String("foo".into()))
+                ("b".to_owned(), Value::Str("foo".into()))
             ])))
         );
     }
@@ -433,7 +439,7 @@ mod tests {
                     Value::Uint32(1),
                     Value::Int32(-2),
                     Value::Float64(-1.5),
-                    Value::String("bar".into())
+                    Value::Str("bar".into())
                 ])))
             ])))
         );
@@ -468,12 +474,12 @@ mod tests {
     #[test]
     fn write_string() {
         assert_eq!(
-            JsonWriter::new(&Value::String("foo \"bar\"".into())).write(),
+            JsonWriter::new(&Value::Str("foo \"bar\"".into())).write(),
             Ok("\"foo \\\"bar\\\"\"".into())
         );
 
         assert_eq!(
-            JsonWriter::new(&Value::String("foo \"bar\"\\".into())).write(),
+            JsonWriter::new(&Value::Str("foo \"bar\"\\".into())).write(),
             Ok("\"foo \\\"bar\\\"\\\\\"".into())
         );
     }
@@ -482,7 +488,7 @@ mod tests {
     fn write_array() {
         assert_eq!(
             JsonWriter::new(&Value::List(Vec::from([
-                Value::String("foo".into()),
+                Value::Str("foo".into()),
                 Value::Float64(-2.2),
                 Value::Null
             ]))).write(),
@@ -494,7 +500,7 @@ mod tests {
     fn write_object() {
         assert_eq!(
             JsonWriter::new(&Value::Map(HashMap::from([
-                ("foo".into(), Value::String("bar".into())),
+                ("foo".into(), Value::Str("bar".into())),
                 ("a".into(), Value::List(Vec::from([
                     Value::Null,
                     Value::Int32(-5)

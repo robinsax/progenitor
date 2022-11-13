@@ -387,7 +387,6 @@ dependencies = [
 name = "progenitor_server"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "bytes",
  "http-body-util",
  "hyper",

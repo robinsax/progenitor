@@ -2,155 +2,117 @@
 #[macro_use]
 extern crate macro_rules_attribute;
 
-mod model;
-
+use std::env;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use progenitor::{
-    EffectError, State, EffectExecutor, Type, Value, Store, SerialFormat,
-    make_flow_effect_fn, effect_fn
+    InitError, EffectError, Value, Context, Registry,
+    effect_fn, archetype_effect, sequence_effect
 };
-use progenitor_server::{Server, Request, Response, ServerInitConfig};
+use progenitor::effect::{store_read, store_write, open_store};
+use progenitor_server::{Server, Request};
+use progenitor_server::effect::{read_req, write_resp};
 
 use progenitor::ext::{JsonSerial, MemStore};
 use progenitor_server::ext::Http1Comm;
 
-// TODO: Explicit drops to prevent deadlock is an interesting problem.
-
-fn message_type() -> Type {
-    Type::Map(HashMap::from([
-        ("message".into(), Type::String)
-    ]))
-}
-
-fn client_type() -> Type {
-    Type::Map(HashMap::from([
-        ("name".into(), Type::String)
-    ]))
-}
-
 #[apply(effect_fn)]
-async fn include_store_effect<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let store = Store::new(message_type(), Box::new(MemStore::new("messages")));
-
-    state.set("store", store).await?;
-
-    Ok(())
-}
-
-#[apply(effect_fn)]
-async fn track_client_effect<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let client = state.get::<Value>("client").await?.clone();
-
-    let store = state.get::<Store>("store").await?;
-
-    store.put(client).await?;
-
-    Ok(())
-}
-
-#[apply(effect_fn)]
-async fn greet_effect<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let client = state.get::<Value>("client").await?;
+async fn greet<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
+    let client = context.get::<Value>("client")?;
 
     let greeting = Value::Map(HashMap::from([
-        ("message".into(), Value::String(format!("hi, {}", String::try_from(client.lookup("name")?)?)))
+        ("message".into(), Value::Str(format!("hi, {}", String::try_from(client.lookup("name")?)?)))
     ]));
 
     drop(client);
 
-    state.set("greeting", greeting).await?;
+    context.set("greeting", greeting)?;
 
     Ok(())
 }
 
 #[apply(effect_fn)]
-async fn hate_effect<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let client = state.get::<Value>("client").await?;
+async fn poke<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
+    let client = context.get::<Value>("client")?;
 
     let greeting = Value::Map(HashMap::from([
-        ("message".into(), Value::String(format!("hi, {}", String::try_from(client.lookup("name")?)?)))
+        ("message".into(), Value::Str(format!("hi, {}", String::try_from(client.lookup("name")?)?)))
     ]));
 
-    drop(client);
-
-    state.set("greeting", greeting).await?;
+    context.set("greeting", greeting)?;
 
     Ok(())
 }
 
+archetype_effect!(track_client, "store_write", Value::map_from([
+    ("from_state".into(), Value::str_from("client")),
+    ("to_store".into(), Value::str_from("visits"))
+]));
+
+archetype_effect!(store_read_visits, "store_read", Value::map_from([
+    ("to_state".into(), Value::str_from("visits")),
+    ("from_store".into(), Value::str_from("visits"))
+]));
+
+archetype_effect!(read_req_client, "read_req", Value::map_from([
+    ("format".into(), Value::str_from("json")),
+    ("to_state".into(), Value::str_from("client")),
+    ("schema".into(), Value::map_from([
+        ("name".into(), Value::str_from("james"))
+    ]))
+]));
+
+archetype_effect!(open_visits_store, "open_store", Value::map_from([
+    ("driver".into(), Value::str_from("memory")),
+    ("name".into(), Value::str_from("visits")),
+    ("schema".into(), Value::map_from([
+        ("name".into(), Value::str_from("james"))
+    ]))
+]));
+
+archetype_effect!(write_resp_greeting, "write_resp", Value::map_from([
+    ("format".into(), Value::str_from("json")),
+    ("from_state".into(), Value::str_from("greeting"))
+]));
+
+archetype_effect!(write_resp_visits, "write_resp", Value::map_from([
+    ("format".into(), Value::str_from("json")),
+    ("from_state".into(), Value::str_from("visits"))
+]));
+
+sequence_effect!(prep_client, vec![
+    "open_visits_store",
+    "read_req_client",
+    "track_client"
+]);
+
+sequence_effect!(greet_flow, vec![
+    "prep_client",
+    "greet",
+    "write_resp_greeting"
+]);
+
+sequence_effect!(poke_flow, vec![
+    "prep_client",
+    "poke",
+    "write_resp_greeting"
+]);
+
+sequence_effect!(visits_flow, vec![
+    "open_visits_store",
+    "store_read_visits",
+    "write_resp_visits"
+]);
+
 #[apply(effect_fn)]
-async fn load_client_from_req_effect<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let req = state.get::<Request>("req").await?;
-
-    let client = JsonSerial::parse(req.payload().clone())?;
-
-    client_type().validate(&client)?;
-
-    drop(req);
-
-    state.set("client", client).await?;
-
-    Ok(())
-}
-
-#[apply(effect_fn)]
-async fn write_greeting_to_resp_effect<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let greeting = state.get::<Value>("greeting").await?;
-
-    let resp_data = JsonSerial::write(&greeting)?;
-
-    drop(greeting);
-
-    state.set("resp", Response::new(resp_data)).await?;
-
-    Ok(())
-}
-
-#[apply(effect_fn)]
-async fn report_visits<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let store = state.get::<Store>("store").await?;
-
-    let visit_items = store.query().all().await?;
-
-    let visits = Value::Map(HashMap::from([
-        ("visits".into(), Value::List(visit_items))
-    ]));
-
-    let resp_data = JsonSerial::write(&visits)?;
-
-    drop(store);
-
-    state.set("resp", Response::new(resp_data)).await?;
-
-    Ok(())
-}
-
-make_flow_effect_fn!(greeting_flow_effect, vec!["req->client", "+store", "track", "greet", "resp<-greeting"]);
-make_flow_effect_fn!(poke_flow_effect, vec!["req->client", "+store", "track", "hate", "resp<-greeting"]);
-make_flow_effect_fn!(visits_flow_effect, vec!["+store", "visits"]);
-
-#[apply(effect_fn)]
-async fn root_handler<'ef>(state: &'ef State) -> Result<(), EffectError> {
-    let mut executor = EffectExecutor::new();
-
-    executor.register("req->client", load_client_from_req_effect)?;
-    executor.register("resp<-greeting", write_greeting_to_resp_effect)?;
-    executor.register("+store", include_store_effect)?;
-    executor.register("track", track_client_effect)?;
-    executor.register("greet", greet_effect)?;
-    executor.register("hate", hate_effect)?;
-    executor.register("visits", report_visits)?;
-    executor.register("greet_flow", greeting_flow_effect)?;
-    executor.register("poke_flow", poke_flow_effect)?;
-    executor.register("visits_flow", visits_flow_effect)?;
-
-    let path = state.get::<Request>("req").await?.route().path().to_owned();
+async fn entrypoint<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
+    let path = context.get::<Request>("req")?.route().path().to_owned();
 
     match path.as_str() {
-        "/greet" => executor.execute("greet_flow", state).await,
-        "/poke" => executor.execute("poke_flow", state).await,
-        "/visits" => executor.execute("visits_flow", state).await,
+        "/greet" => context.execute("greet_flow".into(), None).await,
+        "/poke" => context.execute("poke_flow".into(), None).await,
+        "/visits" => context.execute("visits_flow".into(), None).await,
         _ => return Err(EffectError::Missing(path)),
     }
 }
@@ -159,10 +121,40 @@ use simple_logger;
 fn main() {
     simple_logger::SimpleLogger::new().env().init().unwrap();
 
-    let server = Server::<Http1Comm>::new(
-        Box::new(ServerInitConfig::new()),
-        root_handler
-    ).unwrap();
+    let registry = Arc::new(Registry::new(
+        vec![
+            ("store_read", store_read),
+            ("store_write", store_write),
+            ("open_store", open_store),
+            ("read_req", read_req),
+            ("write_resp", write_resp),
+            ("read_req_client", read_req_client),
+            ("open_visits_store", open_visits_store),
+            ("write_resp_greeting", write_resp_greeting),
+            ("write_resp_visits", write_resp_visits),
+            ("track_client", track_client),
+            ("prep_client", prep_client),
+            ("store_read_visits", store_read_visits),
+            ("greet_flow", greet_flow),
+            ("poke_flow", poke_flow),
+            ("visits_flow", visits_flow),
+            ("poke", poke),
+            ("greet", greet),
+            ("main", entrypoint)
+        ],
+        vec![
+            ("memory", Box::new(|_: &Registry, name: String| Box::new(MemStore::new(name.as_str()))))
+        ],
+        vec![
+            ("json", Box::new(JsonSerial::new()))
+        ],
+        Box::new(|key: String| {
+            let look_key = key.to_uppercase();
+            env::var(look_key).or_else(|_| Err(InitError::Config(format!("invalid key {}", key).into())))
+        })
+    ));
+
+    let server = Server::<Http1Comm>::new(registry).unwrap();
 
     server.start().unwrap();
 }

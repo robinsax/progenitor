@@ -12,13 +12,18 @@ mod registry;
 // TODO: Temporary.
 pub use log;
 
-pub use errors::InitError;
-pub use schema::{Type, SchemaError, Value, Expression, Mutation};
-pub use serial::{SerialError, SerialFormat, SerialValue};
-pub use store::{Store, StoreError};
-pub use state::{State, StateError};
-pub use effects::{EffectError, EffectFn};
-pub use registry::Registry;
+pub use self::errors::InitError;
+pub use self::schema::{Type, SchemaError, Value, Expression, Mutation};
+pub use self::serial::{SerialError, SerialFormat, SerialValue};
+pub use self::store::{Store, StoreError};
+pub use self::state::StateError;
+pub use self::effects::{EffectError, EffectFn, Context};
+pub use self::registry::Registry;
+
+// TODO: Different packaging.
+pub mod effect {
+    pub use super::effects::{store_read, store_write, open_store};
+}
 
 pub mod ext {
     // TODO: All of these should be crate external.

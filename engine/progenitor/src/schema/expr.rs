@@ -79,7 +79,7 @@ impl Comparator {
             (Value::Null, Value::Null) => true,
             (Value::Bool(a), Value::Bool(b)) => self.compare_eq(a, b),
             (Value::Float64(a), Value::Float64(b)) => self.compare_ord(a, b),
-            (Value::String(a), Value::String(b)) => self.compare_full(a, b),
+            (Value::Str(a), Value::Str(b)) => self.compare_full(a, b),
             (Value::Int32(a), Value::Int32(b)) => self.compare_full(a, b),
             (Value::Uint32(a), Value::Uint32(b)) => self.compare_full(a, b),
             _ => false

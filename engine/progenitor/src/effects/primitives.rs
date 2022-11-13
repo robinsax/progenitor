@@ -5,7 +5,7 @@ use super::effect::effect_fn;
 use super::context::Context;
 
 #[apply(effect_fn)]
-pub async fn open_store_effect<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
+pub async fn open_store<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
     let archetype = context.archetype()?;
 
     let driver_name: String = archetype.lookup("driver")?.try_into()?;
@@ -20,24 +20,33 @@ pub async fn open_store_effect<'ef>(context: &'ef mut Context) -> Result<(), Eff
 }
 
 #[apply(effect_fn)]
-pub async fn load_from_store<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
+pub async fn store_read<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
     let archetype = context.archetype()?;
 
     let store_name: String = archetype.lookup("from_store")?.try_into()?;
     let state_key_name: String = archetype.lookup("to_state")?.try_into()?;
-    let filter = Expression::parse_from_value(archetype.lookup("filter")?)?;
 
     let store = context.get::<Store>(store_name)?;
 
-    let result = store.query().filter(filter).all().await?;
+    let mut query = store.query();
+    if let Ok(filter_value) = archetype.lookup("filter") {
+        query = query.filter(Expression::parse_from_value(filter_value)?);
+    }
 
-    context.set(state_key_name, result)?;
+    let one: bool = archetype.lookup("one").is_ok();
+
+    if one {
+        context.set(state_key_name, query.one().await?)?;
+    }
+    else {
+        context.set(state_key_name, Value::List(query.all().await?))?;
+    }
 
     Ok(())
 }
 
 #[apply(effect_fn)]
-pub async fn write_to_store<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
+pub async fn store_write<'ef>(context: &'ef mut Context) -> Result<(), EffectError> {
     let archetype = context.archetype()?;
 
     let store_name: String = archetype.lookup("to_store")?.try_into()?;

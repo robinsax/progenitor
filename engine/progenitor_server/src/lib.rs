@@ -1,10 +1,14 @@
-mod init;
-mod comm;
-mod lock;
+#[macro_use]
+extern crate macro_rules_attribute;
 
-pub use init::ServerInitConfig;
-pub use lock::{ServerLockAtomic, ServerLockAtomicFactory, ServerLockAtomicGuard};
-pub use comm::{Request, Response, CommError, Server};
+mod comm;
+mod effects;
+
+pub use self::comm::{Request, Response, CommError, Server};
+
+pub mod effect {
+    pub use super::effects::{read_req, write_resp};
+}
 
 pub mod ext {
     pub use super::comm::ext::CommDriver;
