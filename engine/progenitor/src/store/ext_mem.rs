@@ -3,7 +3,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use async_trait::async_trait;
 
-use crate::schema::{Value, Expression, Mutation};
+use crate::schema::{Value, Condition, Mutation};
 
 use super::errors::StoreError;
 use super::driver::StoreDriver;
@@ -57,7 +57,7 @@ impl MemStore {
 #[async_trait]
 impl StoreDriver for MemStore {
     async fn load(
-        &self, filter: Option<Expression>, offset: usize, limit: Option<usize>
+        &self, filter: Option<Condition>, offset: usize, limit: Option<usize>
     ) -> Result<Vec<Value>, StoreError> {
         let data = self.internal_mem()?;
         
@@ -87,7 +87,7 @@ impl StoreDriver for MemStore {
         Ok(found)
     }
 
-    async fn update(&self, filter: Expression, update: &Mutation) -> Result<usize, StoreError> {
+    async fn update(&self, filter: Condition, update: &Mutation) -> Result<usize, StoreError> {
         let mut data = self.internal_mem()?;
 
         let mut updates: Vec<(usize, Value)> = Vec::new();
@@ -105,7 +105,7 @@ impl StoreDriver for MemStore {
         Ok(update_count)
     }
 
-    async fn delete(&self, filter: Expression) -> Result<usize, StoreError> {
+    async fn delete(&self, filter: Condition) -> Result<usize, StoreError> {
         let mut data = self.internal_mem()?;
 
         let mut removals: Vec<usize> = Vec::new();

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::schema::{Value, Expression};
+use crate::schema::{Value, Condition};
 
 use super::errors::StoreError;
 
@@ -9,7 +9,7 @@ pub trait QueryExecutor
 where
     Self: Send + Sync
 {
-    async fn load(&self, filter: Option<Expression>, offset: usize, limit: Option<usize>) -> Result<Vec<Value>, StoreError>;
+    async fn load(&self, filter: Option<Condition>, offset: usize, limit: Option<usize>) -> Result<Vec<Value>, StoreError>;
 }
 
 pub struct Query<'qy, E>
@@ -17,7 +17,7 @@ where
     E: QueryExecutor
 {
     executor: &'qy E,
-    filter: Option<Expression>,
+    filter: Option<Condition>,
     limit: Option<usize>,
     offset: usize
 }
@@ -35,7 +35,7 @@ where
         }
     }
 
-    pub fn filter(mut self, condition: Expression) -> Query<'qy, E> {
+    pub fn filter(mut self, condition: Condition) -> Query<'qy, E> {
         self.filter = Some(condition);
 
         self

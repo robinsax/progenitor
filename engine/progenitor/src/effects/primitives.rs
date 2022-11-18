@@ -1,4 +1,4 @@
-use super::super::schema::{Type, Value, Expression};
+use super::super::schema::{Type, Value, Condition};
 use super::super::store::Store;
 use super::errors::EffectError;
 use super::effect::effect_fn;
@@ -30,7 +30,7 @@ pub async fn store_read<'ef>(context: &'ef mut Context) -> Result<(), EffectErro
 
     let mut query = store.query();
     if let Ok(filter_value) = archetype.lookup("filter") {
-        query = query.filter(Expression::parse_from_value(filter_value)?);
+        query = query.filter(Condition::parse_from_value(filter_value)?);
     }
 
     let one: bool = archetype.lookup("one").is_ok();

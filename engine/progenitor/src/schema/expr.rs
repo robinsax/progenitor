@@ -1,5 +1,7 @@
-// Indirect expressions applied to indirectly represented types or data.
+// TODO: Rename and repackage.
+// Indirect Conditions applied to indirectly represented types or data.
 use std::cmp::{Eq, PartialOrd};
+use std::collections::HashMap;
 
 use super::errors::SchemaError;
 use super::primitives::{Type, Value};
@@ -105,14 +107,14 @@ impl Conjunctive {
     }
 }
 
-// An evaluatable indirect expression.
+// An evaluatable indirect condition.
 #[derive(Debug)]
-pub enum Expression {
+pub enum Condition {
     Comparison(Comparator, ValueReference, ValueReference),
-    Conjunctive(Conjunctive, Vec<Expression>)
+    Conjunctive(Conjunctive, Vec<Condition>)
 }
 
-impl Expression {
+impl Condition {
     // TODO: Bad schema.
     pub fn parse_from_value(value: Value) -> Result<Self, SchemaError> {
         if let Ok(cmp_value) = value.lookup("compare") {
@@ -128,7 +130,7 @@ impl Expression {
 
             let mut exprs = Vec::with_capacity(elements.len());
             for element in elements {
-                exprs.push(Expression::parse_from_value(element.clone())?);
+                exprs.push(Condition::parse_from_value(element.clone())?);
             }
 
             Ok(Self::Conjunctive(
@@ -137,7 +139,7 @@ impl Expression {
             ))
         }
         else {
-            Err(SchemaError::NotImplemented("invalid expression".into()))
+            Err(SchemaError::NotImplemented("invalid Condition".into()))
         }
     }
 
@@ -192,6 +194,24 @@ impl Expression {
     }
 }
 
+pub struct LogicScope {
+    values: HashMap<String, Value>
+}
+
+impl LogicScope {
+    pub fn evaluate(&self, reference: &ValueReference) -> Result<Value, SchemaError> {
+        match reference {
+            ValueReference::Value(val) => Ok(val.clone()),
+            ValueReference::Reference(name) => {
+                match self.values.get(name) {
+                    Some(value) => Ok(value.clone()),
+                    None => Err(SchemaError::NotImplemented("no such variable in scope".into()))
+                }
+            }
+        }
+    }
+}
+
 // An indirect reference to a value or a value.
 // TODO: Better reference encapsulation.
 #[derive(Debug)]
@@ -232,4 +252,81 @@ impl ValueReference {
             Self::Reference(lookup) => value.lookup(lookup)
         }
     }
+}
+
+#[derive(Debug)]
+pub enum Operator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    And,
+    Or
+}
+
+impl Operator {
+    // TODO: Can simplify with std::ops?
+    pub fn evaluate(&self, left: &Value, right: &Value) -> Result<Value, SchemaError> {
+        macro_rules! primitive_cases {
+            ($o: tt) => {
+                match (left, right) {
+                    (Value::Int32(a), Value::Int32(b)) => Value::Int32(a $o b),
+                    (Value::Int32(a), Value::Uint32(b)) => {
+                        let b_signed = match i32::try_from(*b) {
+                            Err(_) => return Err(SchemaError::NotImplemented("can't cast unsigned right side to signed".into())),
+                            Ok(signed) => signed
+                        };
+                        Value::Int32(a + &b_signed)
+                    },
+                    (Value::Uint32(a), Value::Uint32(b)) => Value::Uint32(a $o b),
+                    (Value::Float64(a), Value::Float64(b)) => Value::Float64(a $o b),
+                    (Value::Float64(a), Value::Int32(b)) => Value::Float64(a $o f64::from(*b)),
+                    (Value::Float64(a), Value::Uint32(b)) => Value::Float64(a $o f64::from(*b)),
+                    (_, _) => return Err(SchemaError::NotImplemented("invalid operator use".into()))
+                }
+            };
+        }
+
+        Ok(match self {
+            Self::Add => {
+                match left {
+                    Value::List(list) => {
+                        let mut new_list = list.clone();
+
+                        new_list.push(right.clone());
+
+                        Value::List(new_list)
+                    },
+                    Value::Str(a) => {
+                        match right {
+                            Value::Str(b) => Value::Str(a.to_owned() + b),
+                            _ => return Err(SchemaError::NotImplemented("add non-string to string".into()))
+                        }
+                    },
+                    _ => primitive_cases!(+)
+                }
+            },
+            Self::Sub => primitive_cases!(-),
+            Self::Div => primitive_cases!(/),
+            Self::Mul => primitive_cases!(*),
+            _ => return Err(SchemaError::NotImplemented("operator not implemented".into()))
+        })
+    }
+}
+
+#[derive(Debug)]
+pub enum Expression {
+    Op(Operator, Box<Expression>, Box<Expression>),
+    Ref(ValueReference)
+}
+
+#[derive(Debug)]
+pub enum Statement {
+    Assignment()
+}
+
+#[derive(Debug)]
+pub enum LogicTree {
+    ConditionalBranch(Condition, Box<LogicTree>),
+    Block(Vec<Statement>)
 }

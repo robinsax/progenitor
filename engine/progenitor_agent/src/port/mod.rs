@@ -25,5 +25,5 @@ pub fn port(input: PortInput) -> Result<(), ExecError> {
 
             Ok(())
         }
-    }    
+    }
 }

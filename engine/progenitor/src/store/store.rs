@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::schema::{Value, Type, Expression};
+use crate::schema::{Value, Type, Condition};
 
 use super::errors::StoreError;
 use super::driver::StoreDriver;
@@ -14,7 +14,7 @@ pub struct Store {
 #[async_trait]
 impl QueryExecutor for Store {
     async fn load(
-        &self, filter: Option<Expression>, offset: usize, limit: Option<usize>
+        &self, filter: Option<Condition>, offset: usize, limit: Option<usize>
     ) -> Result<Vec<Value>, StoreError> {
         if let Some(filter_expr) = &filter {
             filter_expr.validate(&self.schema)?;

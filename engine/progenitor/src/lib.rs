@@ -13,7 +13,7 @@ mod registry;
 pub use log;
 
 pub use self::errors::InitError;
-pub use self::schema::{Type, SchemaError, Value, Expression, Mutation};
+pub use self::schema::{Type, SchemaError, Value, Condition, Mutation};
 pub use self::serial::{SerialError, SerialFormat, SerialValue};
 pub use self::store::{Store, StoreError};
 pub use self::state::StateError;

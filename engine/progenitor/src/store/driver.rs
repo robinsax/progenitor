@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::schema::{Value, Expression, Mutation};
+use crate::schema::{Value, Condition, Mutation};
 
 use super::errors::StoreError;
 
@@ -9,9 +9,9 @@ pub trait StoreDriver
 where
     Self: Sync + Send
 {
-    async fn load(&self, filter: Option<Expression>, offset: usize, limit: Option<usize>) -> Result<Vec<Value>, StoreError>;
-    async fn update(&self, filter: Expression, update: &Mutation) -> Result<usize, StoreError>;
-    async fn delete(&self, filter: Expression) -> Result<usize, StoreError>;
+    async fn load(&self, filter: Option<Condition>, offset: usize, limit: Option<usize>) -> Result<Vec<Value>, StoreError>;
+    async fn update(&self, filter: Condition, update: &Mutation) -> Result<usize, StoreError>;
+    async fn delete(&self, filter: Condition) -> Result<usize, StoreError>;
     // TODO: Will need a return value.
     async fn insert(&self, data: Vec<Value>) -> Result<(), StoreError>;
 }
